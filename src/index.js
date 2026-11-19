@@ -4,17 +4,17 @@ import { join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
 import { createStore } from './state.js';
-import { count, effectivePolicy, modelKey } from './policy.js';
+import { count, effectivePolicy, modelKey, MAX_RETRIES, MIN_RETRY_INTERVAL_MS, MAX_RETRY_INTERVAL_MS } from './policy.js';
 import { installExecutor } from './retry.js';
 
 export const name = 'retry-manager';
 export const inject = ['agents', 'sessionProjections', 'llm'];
 const route = '/api/dsh-retry-manager';
 const identity = z.string().min(1).max(240).refine(v => !['__proto__', 'constructor', 'prototype'].includes(v));
-const retries = z.number().int().min(0).max(20);
+const retries = z.number().int().min(0).max(MAX_RETRIES);
 const revision = z.number().int().nonnegative();
 const mutation = z.discriminatedUnion('op', [
-  z.object({op: z.literal('default'), revision, maxRetries: retries.nullable()}).strict(),
+  z.object({op: z.literal('default'), revision, maxRetries: retries.nullable(), retryIntervalMs: z.number().int().min(MIN_RETRY_INTERVAL_MS).max(MAX_RETRY_INTERVAL_MS).multipleOf(100).nullable().optional()}).strict(),
   z.object({op: z.literal('model'), revision, provider: identity, model: identity, maxRetries: retries.nullable()}).strict(),
   z.object({op: z.literal('session'), revision, sessionId: identity, maxRetries: retries.nullable()}).strict(),
   z.object({op: z.literal('cancel'), sessionId: identity, retryId: identity}).strict()
@@ -55,7 +55,7 @@ export async function apply(ctx, config = {}) {
   }
   function currentView(sessionId) {
     const state = store.snapshot();
-    const result = {version: '0.1.0', revision: state.revision, defaultMaxRetries: state.defaultMaxRetries,
+    const result = {version: '0.1.0', revision: state.revision, defaultMaxRetries: state.defaultMaxRetries, retryIntervalMs: state.retryIntervalMs,
       models: Object.entries(state.models).map(([key, maxRetries]) => { const [provider, model] = JSON.parse(key); return {provider, model, maxRetries}; })};
     if (sessionId) {
       const agent = sessionFor(sessionId);
@@ -67,7 +67,7 @@ export async function apply(ctx, config = {}) {
       const effective = effectivePolicy(state, sessionId, provider, model, inherited);
       const retry = active.get(agent.session);
       result.session = {sessionId, provider, model, override: state.sessions[sessionId] ?? null,
-        source: effective.source, maxRetries: effective.policy.maxRetries,
+        source: effective.source, maxRetries: effective.policy.maxRetries, retryIntervalMs: state.retryIntervalMs,
         active: retry ? {retryId: retry.retryId, retry: retry.retry, maxRetries: retry.maxRetries, phase: retry.phase, until: retry.until, code: retry.failure.code} : null};
     }
     return result;
@@ -83,7 +83,10 @@ export async function apply(ctx, config = {}) {
     }
     if (input.op === 'session') sessionFor(input.sessionId);
     await store.update(input.revision, draft => {
-      if (input.op === 'default') draft.defaultMaxRetries = input.maxRetries;
+      if (input.op === 'default') {
+        draft.defaultMaxRetries = input.maxRetries;
+        if (input.retryIntervalMs !== undefined) draft.retryIntervalMs = input.retryIntervalMs;
+      }
       if (input.op === 'model') {
         const key = modelKey(input.provider, input.model);
         if (input.maxRetries === null) delete draft.models[key]; else draft.models[key] = count(input.maxRetries);
@@ -120,7 +123,7 @@ export async function apply(ctx, config = {}) {
         running.add(operation);
         try { return response(200, await operation); } finally { running.delete(operation); }
       } catch (error) {
-        return response(error instanceof z.ZodError ? 400 : error.status ?? 500, {error: error instanceof z.ZodError ? '请求参数无效：次数须为 0–20 的整数' : error.message});
+        return response(error instanceof z.ZodError ? 400 : error.status ?? 500, {error: error instanceof z.ZodError ? '请求参数无效：次数须为 0–100 的整数，间隔须为 0.1–3600 秒（精确到 0.1 秒）' : error.message});
       }
     }
   }));

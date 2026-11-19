@@ -2,10 +2,10 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import writeFileAtomic from 'write-file-atomic';
 import { z } from 'zod';
-import { MAX_RETRIES } from './policy.js';
+import { MAX_RETRIES, MIN_RETRY_INTERVAL_MS, MAX_RETRY_INTERVAL_MS } from './policy.js';
 const retries = z.number().int().min(0).max(MAX_RETRIES);
-const schema = z.object({version: z.literal(1), revision: z.number().int().nonnegative(), defaultMaxRetries: retries.nullable(), models: z.record(z.string(), retries), sessions: z.record(z.string(), retries)}).strict();
-const empty = () => ({version: 1, revision: 0, defaultMaxRetries: null, models: {}, sessions: {}});
+const schema = z.object({version: z.literal(1), revision: z.number().int().nonnegative(), defaultMaxRetries: retries.nullable(), retryIntervalMs: z.number().int().min(MIN_RETRY_INTERVAL_MS).max(MAX_RETRY_INTERVAL_MS).multipleOf(100).nullable().default(null), models: z.record(z.string(), retries), sessions: z.record(z.string(), retries)}).strict();
+const empty = () => ({version: 1, revision: 0, defaultMaxRetries: null, retryIntervalMs: null, models: {}, sessions: {}});
 export async function createStore(file) {
   let state;
   try { state = schema.parse(JSON.parse(await readFile(file, 'utf8'))); }

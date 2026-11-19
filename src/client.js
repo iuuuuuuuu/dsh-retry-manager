@@ -4,7 +4,7 @@ const h = React.createElement;
 const { useState, useEffect, useCallback, useRef } = React;
 const API = new URL('api/dsh-retry-manager', document.baseURI).pathname;
 const SOURCE = {session: '本对话', model: '模型默认', default: '全局默认', provider: '提供商默认'};
-const CSS = ".drm-panel{font-family:inherit;font-size:13px;line-height:1.6;color:var(--text-primary,#dbe1e8);box-sizing:border-box}.drm-panel *{box-sizing:border-box}.drm-panel h2{font-size:18px;line-height:1.4;margin:0 0 6px;font-weight:650}.drm-panel h3{font-size:14px;margin:0 0 4px;font-weight:600}.drm-panel p{margin:6px 0 12px}.drm-heading,.drm-row,.drm-rule{display:flex;align-items:center;justify-content:space-between;gap:16px}.drm-heading{align-items:flex-start;margin-bottom:20px}.drm-muted,.drm-foot,.drm-model small{color:var(--text-secondary,#929baa)}.drm-foot{font-size:12px;margin-top:20px!important}.drm-tag{font-size:11px;border:1px solid var(--border-color,#38414e);padding:3px 8px;border-radius:20px;white-space:nowrap}.drm-note{padding:12px 14px;background:var(--bg-hover,rgba(120,135,160,.1));border:1px solid var(--border-color,#38414e);border-radius:8px;margin:14px 0 18px}.drm-card{border:1px solid var(--border-color,#38414e);padding:18px;border-radius:10px;margin:16px 0}.drm-panel button,.drm-panel select,.drm-panel input{font:inherit;color:inherit;background:var(--bg-primary,#202630);border:1px solid var(--border-color,#46505e);border-radius:6px;min-height:34px;padding:5px 10px;max-width:100%}.drm-panel button{cursor:pointer;white-space:nowrap}.drm-panel button:hover{background:var(--bg-hover,#303a47)}.drm-panel button:disabled,.drm-panel select:disabled{opacity:.55;cursor:wait}.drm-panel input:focus-visible,.drm-panel select:focus-visible,.drm-panel button:focus-visible{outline:2px solid #739bfa;outline-offset:2px}.drm-panel select{min-width:130px}.drm-card>.drm-row{flex-wrap:wrap}.drm-card>.drm-row>div{flex:1 1 200px}.drm-card>.drm-row>select{flex:1 1 260px;width:100%}.drm-global{flex:1 1 260px;min-width:0}.drm-inherit{display:flex;align-items:center;gap:8px;margin-bottom:10px}.drm-panel .drm-inherit input{min-height:0;width:15px;height:15px;padding:0;accent-color:#587ad7}.drm-global-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.drm-global-controls label{display:flex;align-items:center;gap:8px}.drm-global-controls input{width:90px}.drm-global>.drm-muted{font-size:12px;margin:10px 0 4px}.drm-primary{background:#4169cf!important;color:#fff!important;border-color:#587ad7!important}.drm-add{display:grid;grid-template-columns:minmax(130px,1fr) minmax(140px,1.3fr) 100px auto;align-items:end;gap:10px;border-top:1px solid var(--border-color,#38414e);padding-top:16px;margin-top:16px}.drm-add label{display:flex;flex-direction:column;gap:6px;font-size:12px}.drm-add input{width:100%}.drm-rule{padding:10px 0;border-bottom:1px solid var(--border-color,#38414e)}.drm-rule:last-child{border-bottom:0}.drm-model{min-width:0;overflow-wrap:anywhere}.drm-model strong,.drm-model small{display:block}.drm-model small{font-size:12px}.drm-empty{padding:12px 0;color:var(--text-secondary,#929baa)}.drm-error{color:#f69494;background:rgba(190,60,60,.1);padding:10px;border-radius:6px}.drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--border-color,rgba(140,150,165,.35));border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap;opacity:.85}.drm-trigger:hover{opacity:1;background:rgba(130,140,160,.12)}.drm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:10000;display:flex;justify-content:center;align-items:center;padding:20px}.drm-dialog{background:var(--bg-primary,#1d232c);border:1px solid var(--border-color,#38414e);border-radius:12px;padding:24px;width:490px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:0 18px 70px rgba(0,0,0,.3)}@media(max-width:800px){.drm-add{grid-template-columns:1fr 1fr}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(prefers-color-scheme:light){.drm-panel{color:var(--text-primary,#283141)}.drm-panel button,.drm-panel select,.drm-panel input{background:var(--bg-primary,#fff);border-color:var(--border-color,#d6dbe3)}.drm-dialog{background:var(--bg-primary,#fff)}.drm-note{background:var(--bg-hover,#f1f4f9)}.drm-card,.drm-rule,.drm-tag,.drm-add{border-color:var(--border-color,#d6dbe3)}}";
+const CSS = ".drm-panel{font-family:inherit;font-size:13px;line-height:1.6;color:var(--text-primary,#dbe1e8);box-sizing:border-box}.drm-panel *{box-sizing:border-box}.drm-panel h2{font-size:18px;line-height:1.4;margin:0 0 6px;font-weight:650}.drm-panel h3{font-size:14px;margin:0 0 4px;font-weight:600}.drm-panel p{margin:6px 0 12px}.drm-heading,.drm-row,.drm-rule{display:flex;align-items:center;justify-content:space-between;gap:16px}.drm-heading{align-items:flex-start;margin-bottom:20px}.drm-muted,.drm-foot,.drm-model small{color:var(--text-secondary,#929baa)}.drm-foot{font-size:12px;margin-top:20px!important}.drm-tag{font-size:11px;border:1px solid var(--border-color,#38414e);padding:3px 8px;border-radius:20px;white-space:nowrap}.drm-note{padding:12px 14px;background:var(--bg-hover,rgba(120,135,160,.1));border:1px solid var(--border-color,#38414e);border-radius:8px;margin:14px 0 18px}.drm-card{border:1px solid var(--border-color,#38414e);padding:18px;border-radius:10px;margin:16px 0}.drm-panel button,.drm-panel select,.drm-panel input{font:inherit;color:inherit;background:var(--bg-primary,#202630);border:1px solid var(--border-color,#46505e);border-radius:6px;min-height:34px;padding:5px 10px;max-width:100%}.drm-panel button{cursor:pointer;white-space:nowrap}.drm-panel button:hover{background:var(--bg-hover,#303a47)}.drm-panel button:disabled,.drm-panel select:disabled{opacity:.55;cursor:wait}.drm-panel input:focus-visible,.drm-panel select:focus-visible,.drm-panel button:focus-visible{outline:2px solid #739bfa;outline-offset:2px}.drm-panel select{min-width:130px}.drm-card>.drm-row{flex-wrap:wrap}.drm-card>.drm-row>div{flex:1 1 200px}.drm-card>.drm-row>select{flex:1 1 260px;width:100%}.drm-global{flex:1 1 100%;min-width:0}.drm-inherit{display:flex;align-items:center;gap:8px;margin-bottom:10px}.drm-panel .drm-inherit input{min-height:0;width:15px;height:15px;padding:0;accent-color:#587ad7}.drm-global-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.drm-global-controls label{display:flex;align-items:center;gap:8px}.drm-global-controls input{width:90px}.drm-interval{margin:14px 0;padding:12px 0;border-top:1px solid var(--border-color,#38414e);border-bottom:1px solid var(--border-color,#38414e)}.drm-interval>.drm-muted{font-size:12px;margin:10px 0 0}.drm-global>.drm-muted{font-size:12px;margin:10px 0 4px}.drm-primary{background:#4169cf!important;color:#fff!important;border-color:#587ad7!important}.drm-add{display:grid;grid-template-columns:minmax(130px,1fr) minmax(140px,1.3fr) 100px auto;align-items:end;gap:10px;border-top:1px solid var(--border-color,#38414e);padding-top:16px;margin-top:16px}.drm-add label{display:flex;flex-direction:column;gap:6px;font-size:12px}.drm-add input{width:100%}.drm-rule{padding:10px 0;border-bottom:1px solid var(--border-color,#38414e)}.drm-rule:last-child{border-bottom:0}.drm-model{min-width:0;overflow-wrap:anywhere}.drm-model strong,.drm-model small{display:block}.drm-model small{font-size:12px}.drm-empty{padding:12px 0;color:var(--text-secondary,#929baa)}.drm-error{color:#f69494;background:rgba(190,60,60,.1);padding:10px;border-radius:6px}.drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--border-color,rgba(140,150,165,.35));border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap;opacity:.85}.drm-trigger:hover{opacity:1;background:rgba(130,140,160,.12)}.drm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:10000;display:flex;justify-content:center;align-items:center;padding:20px}.drm-dialog{background:var(--bg-primary,#1d232c);border:1px solid var(--border-color,#38414e);border-radius:12px;padding:24px;width:490px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:0 18px 70px rgba(0,0,0,.3)}@media(max-width:800px){.drm-add{grid-template-columns:1fr 1fr}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(prefers-color-scheme:light){.drm-panel{color:var(--text-primary,#283141)}.drm-panel button,.drm-panel select,.drm-panel input{background:var(--bg-primary,#fff);border-color:var(--border-color,#d6dbe3)}.drm-dialog{background:var(--bg-primary,#fff)}.drm-note{background:var(--bg-hover,#f1f4f9)}.drm-card,.drm-rule,.drm-tag,.drm-add{border-color:var(--border-color,#d6dbe3)}}";
 
 async function api(query = '', body, signal) {
   const res = await fetch(API + query, {method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
@@ -41,26 +41,39 @@ function RetrySelect({value, onChange, disabled, label, inherit = '继承上级�
   return h('select', {'aria-label': label, value: value === null ? 'inherit' : String(value), disabled,
     onChange: e => onChange(e.target.value === 'inherit' ? null : Number(e.target.value))},
     h('option', {value: 'inherit'}, inherit),
-    ...Array.from({length: 21}, (_, n) => h('option', {key: n, value: n}, n === 0 ? '关闭重试（0 次）' : n + ' 次重试')));
+    ...Array.from({length: 101}, (_, n) => h('option', {key: n, value: n}, n === 0 ? '关闭重试（0 次）' : n + ' 次重试')));
 }
 function BusyLabel({busy}) { return busy ? h('span', {className:'drm-muted', role:'status'}, '正在保存…') : null; }
-function GlobalRetryInput({value, disabled, onSave}) {
+function GlobalRetryInput({value, intervalValue, disabled, onSave}) {
   const [inherit, setInherit] = useState(value === null);
   const [draft, setDraft] = useState(String(value ?? 5));
   useEffect(() => { setInherit(value === null); setDraft(String(value ?? 5)); }, [value]);
-  const changed = inherit ? value !== null : value === null || draft === '' || Number(draft) !== value;
+  const [inheritInterval, setInheritInterval] = useState(intervalValue === null);
+  const [intervalDraft, setIntervalDraft] = useState(String((intervalValue ?? 1000) / 1000));
+  useEffect(() => { setInheritInterval(intervalValue === null); setIntervalDraft(String((intervalValue ?? 1000) / 1000)); }, [intervalValue]);
+  const countChanged = inherit ? value !== null : value === null || draft === '' || Number(draft) !== value;
+  const intervalChanged = inheritInterval ? intervalValue !== null : intervalValue === null || intervalDraft === '' || Math.round(Number(intervalDraft) * 1000) !== intervalValue;
+  const changed = countChanged || intervalChanged;
   return h('form', {className:'drm-global', onSubmit:async event => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
-    await onSave(inherit ? null : Number(draft));
+    await onSave(inherit ? null : Number(draft), inheritInterval ? null : Math.round(Number(intervalDraft) * 1000));
   }},
     h('label', {className:'drm-inherit'}, h('input', {type:'checkbox', checked:inherit, disabled,
       onChange:event => setInherit(event.target.checked)}), '继承提供商设置'),
     h('div', {className:'drm-global-controls'},
-      h('label', null, '重试次数', h('input', {type:'number', 'aria-label':'全局重试次数', min:0, max:20, step:1,
+      h('label', null, '重试次数', h('input', {type:'number', 'aria-label':'全局重试次数', min:0, max:100, step:1,
         required:true, value:draft, disabled:disabled || inherit, onChange:event => setDraft(event.target.value)})),
-      h('button', {type:'submit', className:'drm-primary', disabled:disabled || !changed}, '保存全局默认')),
-    h('p', {className:'drm-muted'}, '0 为关闭，最多 20 次。输入后按 Enter 或点击保存；保存后无需重启。'),
+      h('span', {className:'drm-muted'}, '0 为关闭，最多 100 次')),
+    h('div', {className:'drm-interval'},
+      h('label', {className:'drm-inherit'}, h('input', {type:'checkbox', checked:inheritInterval, disabled,
+        onChange:event => setInheritInterval(event.target.checked)}), '继承提供商重试间隔'),
+      h('div', {className:'drm-global-controls'},
+        h('label', null, '重试间隔（秒）', h('input', {type:'number', 'aria-label':'全局重试间隔（秒）', min:0.1, max:3600, step:0.1,
+          required:true, value:intervalDraft, disabled:disabled || inheritInterval, onChange:event => setIntervalDraft(event.target.value)}))),
+      h('p', {className:'drm-muted'}, '自定义为固定本地间隔，支持 0.1–3600 秒，适用于所有模型和对话。适配器提供的服务端 Retry-After 仍按官方规则处理，超过间隔上限时停止自动重试。')),
+    h('button', {type:'submit', className:'drm-primary', disabled:disabled || !changed}, '保存全局默认'),
+    h('p', {className:'drm-muted'}, '输入后按 Enter 或点击保存；保存后无需重启，当前已开始的重试保持原设置。'),
     h('span', {className:'drm-muted', role:'status'}, disabled ? '正在保存…' : changed ? '尚未保存' : '已保存'));
 }
 function SettingsCard() {
@@ -81,8 +94,8 @@ function SettingsCard() {
     h('div', {className:'drm-note'}, '优先级：当前对话 ＞ 模型 ＞ 全局 ＞ 提供商。设置 3 次，表示首次失败后最多再请求 3 次；每个新步骤重新计数。'),
     h(ErrorText, {text:error}),
     !data ? h('p', {role:'status'}, '正在读取配置…') : h(React.Fragment, null,
-      h('div', {className:'drm-card'}, h('div', {className:'drm-row'}, h('div', null, h('h3',null,'全局默认'), h('p',{className:'drm-muted'},'仅在没有模型规则和对话覆盖时使用。')),
-        h(GlobalRetryInput, {value:data.defaultMaxRetries, disabled:busy, onSave:maxRetries=>save({op:'default',maxRetries})}))),
+      h('div', {className:'drm-card'}, h('div', {className:'drm-row'}, h('div', null, h('h3',null,'全局默认'), h('p',{className:'drm-muted'},'次数仅在没有模型规则和对话覆盖时使用；间隔统一作用于所有模型和对话。')),
+        h(GlobalRetryInput, {value:data.defaultMaxRetries, intervalValue:data.retryIntervalMs ?? null, disabled:busy, onSave:(maxRetries,retryIntervalMs)=>save({op:'default',maxRetries,retryIntervalMs})}))),
       h('div', {className:'drm-card'}, h('h3',null,'按模型设置'), h('p',{className:'drm-muted'},'模型用“提供商 + 模型 ID”识别，同名模型不会串用设置。'),
         data.models.length === 0 ? h('p',{className:'drm-empty'},'尚未添加模型规则，当前继承上级设置。') : h('div',{className:'drm-rules'},...data.models.map(rule=>h('div',{className:'drm-rule',key:JSON.stringify([rule.provider,rule.model])},
           h('div',{className:'drm-model'},h('strong',null,rule.model),h('small',null,rule.provider)),
@@ -92,7 +105,7 @@ function SettingsCard() {
           h('datalist',{id:'drm-providers'},...providers.map(id=>h('option',{value:id,key:id}))),
           h('label',null,'模型 ID',h('input',{'aria-label':'模型 ID',value:model,list:'drm-models',required:true,maxLength:240,placeholder:'选择或输入模型 ID',onChange:e=>setModel(e.target.value)})),
           h('datalist',{id:'drm-models'},...catalog.filter(x=>x.provider===provider).map(x=>h('option',{value:x.model,key:x.model},x.name))),
-          h('label',null,'重试次数',h('input',{type:'number','aria-label':'新增模型重试次数',min:0,max:20,step:1,required:true,value:amount,onChange:e=>setAmount(Number(e.target.value))})),
+          h('label',null,'重试次数',h('input',{type:'number','aria-label':'新增模型重试次数',min:0,max:100,step:1,required:true,value:amount,onChange:e=>setAmount(Number(e.target.value))})),
           h('button',{className:'drm-primary',type:'submit',disabled:busy},'保存模型规则')),
         catalogError ? h('p',{className:'drm-muted'},'模型目录暂不可用，可手动填写 ID。'+catalogError) : null),
       h('div',{className:'drm-row'},h(BusyLabel,{busy}),h('button',{type:'button',onClick:()=>refresh(),disabled:busy},'刷新配置'))),
@@ -124,7 +137,7 @@ function SessionControl({sessionId}) {
       !session ? h('p',{role:'status'},'正在读取本对话配置…') : h(React.Fragment,null,
         h('p',{className:'drm-model'},h('strong',null,session.model||'尚未选择模型'),h('small',null,session.provider||'')),
         h('label',{className:'drm-row'},'本对话重试次数',h(RetrySelect,{label:'本对话重试次数',value:session.override,disabled:busy,onChange:maxRetries=>save({op:'session',sessionId,maxRetries}),inherit:'继承模型／上级设置'})),
-        h('p',{className:'drm-muted','data-testid':'retry-effective'},'当前生效：'+SOURCE[session.source]+' · '+session.maxRetries+' 次'),
+        h('p',{className:'drm-muted','data-testid':'retry-effective'},'当前生效：'+SOURCE[session.source]+' · '+session.maxRetries+' 次 · '+(session.retryIntervalMs === null ? '继承提供商间隔' : '间隔 '+session.retryIntervalMs/1000+' 秒')),
         session.active ? h('div',{className:'drm-note',role:'status'},
           h('strong',null,(session.active.phase==='waiting'?'等待重试':'正在重试')+' · '+session.active.retry+'/'+session.active.maxRetries),
           h('p',null,'错误类型：'+session.active.code+(session.active.phase==='waiting'?' · 约 '+Math.max(0,Math.ceil((session.active.until-Date.now())/1000))+' 秒后重试':'')),

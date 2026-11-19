@@ -91,6 +91,25 @@ try {
   off=ctx.on('session/event',(session,event)=>{if(session.id===a.id&&event.type==='llm/retry'&&!changed)changed=configure(s=>s.sessions[a.id]=8)});events=await run(a);off();await changed;assert.equal(counts.get(a.id),3);assert.equal(events.filter(e=>e.type==='llm/retry').length,2);console.log('PASS edits during backoff cannot reset an active budget');
   a=await agent('tool-once');events=await run(a);assert.equal(counts.get('side-effects'),1);assert.equal(counts.get(a.id),4);assert.equal(events.at(-1).data.reason.kind,'completed');console.log('PASS executed tool is not replayed after subsequent model failures');
   const before=counts.get(a.id);events=await run(a);assert.equal(counts.get(a.id),before+1);console.log('PASS next request starts independently after prior step');
+  await configure(s=>{s.defaultMaxRetries=100;s.retryIntervalMs=null;});
+  for(const source of ['global','model','session']){
+    a=await agent('always-fail');await configure(s=>{delete s.models[modelKey('integration','always-fail')];if(source==='model')s.models[modelKey('integration','always-fail')]=100;if(source==='session')s.sessions[a.id]=100;});
+    events=await run(a);assert.equal(counts.get(a.id),101);assert.equal(events.filter(e=>e.type==='llm/retry').length,100);
+    console.log('PASS '+source+' maximum: 100 retries execute exactly 101 calls');
+  }
+  await configure(s=>{delete s.models[modelKey('integration','always-fail')];s.defaultMaxRetries=2;s.retryIntervalMs=100;});
+  a=await agent('always-fail');events=await run(a);
+  let scheduled=events.filter(e=>e.type==='llm/retry'),started=events.filter(e=>e.type==='llm/retry-started');
+  assert.deepEqual(scheduled.map(e=>e.data.delayMs),[100,100]);
+  for(let i=0;i<2;i++)assert.ok(started[i].time-scheduled[i].time>=85,'official timer must actually wait');
+  console.log('PASS fixed interval reaches actual official timers without exponential growth or jitter');
+  let intervalChange;off=ctx.on('session/event',(session,event)=>{if(session.id===a.id&&event.type==='llm/retry'&&!intervalChange)intervalChange=configure(s=>s.retryIntervalMs=200);});
+  events=await run(a);off();await intervalChange;assert.deepEqual(events.filter(e=>e.type==='llm/retry').map(e=>e.data.delayMs),[100,100]);
+  events=await run(a);assert.deepEqual(events.filter(e=>e.type==='llm/retry').map(e=>e.data.delayMs),[200,200]);
+  console.log('PASS interval edits are frozen during current recovery and live on the next step');
+  await configure(s=>s.retryIntervalMs=null);events=await run(a);assert.deepEqual(events.filter(e=>e.type==='llm/retry').map(e=>e.data.delayMs),[5,10]);
+  console.log('PASS restoring inherited interval restores provider exponential backoff');
+  await configure(s=>s.retryIntervalMs=1000);a=await agent('cancel');off=ctx.on('session/event',(session,event)=>{if(session.id===a.id&&event.type==='llm/retry')a.cancel({kind:'user'},{keepInbox:true});});events=await run(a);off();assert.equal(counts.get(a.id),1);assert.equal(events.filter(e=>e.type==='llm/retry-started').length,0);console.log('PASS custom interval wait remains immediately cancellable');
   await Promise.all(created.map(h=>h.dispose()));
   console.log('ALL real DSH agent integration assertions passed.');
 } finally {

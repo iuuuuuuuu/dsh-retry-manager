@@ -14,4 +14,13 @@ test('always mode is bounded and permanent errors are filtered',()=>{
  const result=effectivePolicy(base,'s','p','m',{...provider,mode:'always'});assert.equal(result.policy.mode,'normal');assert.equal(result.policy.maxRetries,5);
  assert.deepEqual(effectivePolicy(base,'s','p','m',provider).policy.retryableCodes,['SERVER']);
 });
-test('reject invalid counts rather than silently rounding',()=>{for(const value of [-1,21,0.5,'3',NaN])assert.throws(()=>count(value));assert.equal(count(0),0);assert.equal(count(20),20)});
+test('reject invalid counts rather than silently rounding',()=>{for(const value of [-1,101,0.5,'3',NaN])assert.throws(()=>count(value));assert.equal(count(0),0);assert.equal(count(100),100)});
+
+test('global fixed interval applies independently of count precedence',()=>{
+ const state={...structuredClone(base),retryIntervalMs:1500};state.models[modelKey('p','m')]=100;state.sessions.s=80;
+ const policy=effectivePolicy(state,'s','p','m',provider).policy;
+ assert.equal(policy.maxRetries,80);assert.equal(policy.initialDelayMs,1500);assert.equal(policy.maxDelayMs,1500);assert.equal(policy.jitterRatio,0);
+ const inherited=effectivePolicy({...state,retryIntervalMs:null},'s','p','m',provider).policy;
+ assert.equal(inherited.initialDelayMs,10);assert.equal(inherited.maxDelayMs,100);
+ assert.equal(effectivePolicy(base,'s','p','m',{...provider,maxRetries:200}).policy.maxRetries,100);
+});

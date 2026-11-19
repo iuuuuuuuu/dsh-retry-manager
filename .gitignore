@@ -4,3 +4,26 @@ lib/
 .evidence/
 .env*
 *.log
+
+# Local credentials, runtime data and one-off verification artifacts
+.credentials*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+.agents/
+.agent-notes/
+.dsh/
+.mnemon/
+probe/
+.probe/
+coverage/
+playwright-report/
+test-results/
+*.bak
+*.tmp
+*.zip
+*.exe

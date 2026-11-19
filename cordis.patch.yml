@@ -1,0 +1,6 @@
+# Disable the base executor while this bundle is selected. Removing the bundle restores it.
+- id: llm-retry
+  disabled: true
+- insert:
+    - id: dsh-retry-manager
+      name: dsh-retry-manager

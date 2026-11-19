@@ -27,6 +27,7 @@
 
 - 复用官方持久重试事件、退避和取消机制，不修改 DSH 核心或安装包。
 - 默认重试超时、传输失败、服务端错误、限流与空响应；提供商自定义可恢复错误码仍可沿用。
+- Responses 流内明确的 `Upstream service temporarily unavailable`、`Upstream request failed, please try again later`（包括 `server_error:` 前缀）即使被适配器归为 `PI_AI_ERROR`，也按 `SERVER` 继续重试；沿用同一失败步骤的预算与间隔，不重置计数。未知、认证、配额、配置、pending／deferred 等错误不会因此一概重试，原始失败文本保留。
 - 手动停止、认证／配额／请求参数错误不重试；上下文溢出和图片卸载交由 DSH 的相应恢复机制。
 - 不提供无限重试：上游 always 模式降为最多 5 次；上游 normal 上限超过 100 时限制为 100。
 - 自定义间隔继续沿用官方 Retry-After 规则：适配器提供的有效值不超过配置间隔时会替代本地等待，超过该间隔则停止本次自动恢复；需要原提供商的完整退避策略时，勾选继承间隔。
@@ -50,6 +51,8 @@
 真实 DSH agent 集成测试：将环境变量 `DSH_DIST` 指向 DSH 的 package.json 或 lib/bin.js，运行
 `npm run test:integration`。找不到真实 DSH 会失败，不会以桩或跳过伪装通过。
 可将 `DSH_TEST_ROOT` 指向统一临时目录。
+
+在相同 `DSH_DIST` 环境下，`npm run test:responses` 使用构建后的插件、真实 DSH Responses 适配器和本地 HTTP 服务器，覆盖 502 → 流内临时上游错误 → 成功、统一预算、5 秒真实等待、取消、永久错误反例和工具不重放。运行前先 `npm run build`，不会调用付费模型。
 
 本次还用隔离 Web profile、真实本地 HTTP 故障服务器和无头浏览器完成界面及 503、429、
 断流、超时、空响应的验证；无付费模型请求、无鼠标移动或焦点抢占。

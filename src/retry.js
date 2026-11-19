@@ -1,4 +1,4 @@
-import { effectivePolicy } from './policy.js';
+import { effectivePolicy, normalizeRetryFailure } from './policy.js';
 
 // The official executor alone owns retry IDs, budgets, persistence and backoff.
 // Capture one policy for a failed step; edits during backoff affect the NEXT step.
@@ -20,7 +20,7 @@ export async function installExecutor(ctx, store, officialApply) {
             captured = {turn: payload.turn, step: payload.step, policy: resolved.policy};
             steps.set(session, captured);
           }
-          return listener({...payload, retryPolicy: captured.policy}, next);
+          return listener({...payload, failure: normalizeRetryFailure(payload.failure), retryPolicy: captured.policy}, next);
         }, options);
       };
     }

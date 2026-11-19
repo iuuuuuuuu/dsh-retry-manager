@@ -37,7 +37,8 @@
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
     "test:integration": "node scripts/integration.mjs",
-    "check:privacy": "node scripts/privacy.mjs"
+    "check:privacy": "node scripts/privacy.mjs",
+    "test:responses": "node scripts/responses-integration.mjs"
   },
   "dependencies": {
     "write-file-atomic": "^7.0.0",

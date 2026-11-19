@@ -7,6 +7,15 @@ export function count(value) {
   if (!Number.isInteger(value) || value < 0 || value > MAX_RETRIES) throw new TypeError('重试次数必须是 0–100 的整数');
   return value;
 }
+// The Responses adapter can discard the provider status and leave these exact
+// transient messages as PI_AI_ERROR. Do not retry arbitrary adapter errors.
+const TEMPORARY_UPSTREAM = /^(?:(?:Error Code )?server_error:\s*)?(?:Upstream service temporarily unavailable|Upstream request failed, please try again later)[.!]?$/i;
+export function normalizeRetryFailure(failure) {
+  if (failure.code !== 'PI_AI_ERROR' || typeof failure.message !== 'string') return failure;
+  if (failure.status !== undefined && (!Number.isInteger(failure.status) || failure.status < 500 || failure.status > 599)) return failure;
+  if (!TEMPORARY_UPSTREAM.test(failure.message.trim())) return failure;
+  return Object.freeze({...failure, code: 'SERVER'});
+}
 export const modelKey = (provider, model) => JSON.stringify([provider, model]);
 export function effectivePolicy(state, sessionId, provider, model, inherited) {
   const session = Object.hasOwn(state.sessions, sessionId) ? state.sessions[sessionId] : undefined;

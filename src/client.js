@@ -16,6 +16,9 @@ const CSS = `
 .drm-select-menu{font-family:inherit;color:var(--dsw-alias-label-primary);min-width:min(240px,calc(100vw - 24px));max-width:min(420px,calc(100vw - 24px));max-height:min(380px,calc(100dvh - 32px))}.drm-select-menu>.drm-select-content{min-height:0}.drm-select-content{display:flex;flex-direction:column;min-height:0}.drm-select-search{display:flex;align-items:center;gap:8px;padding:8px 8px 10px;flex:none;border-bottom:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary)}.drm-select-search svg{flex:none}.drm-select-search input{font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-module-platform);border:0;border-radius:var(--dsw-radius-md);padding:7px 9px;width:100%;min-width:0;line-height:20px}.drm-select-search input::placeholder{color:var(--dsw-alias-label-tertiary)}.drm-select-options{overflow-y:auto;min-height:0;max-height:min(260px,calc(100dvh - 180px));padding:4px 0;overscroll-behavior:contain}.drm-select-item{display:flex;flex-direction:column;gap:1px;min-width:0}.drm-select-item>span,.drm-select-item>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drm-select-item>small{font-size:11px;color:var(--dsw-alias-label-tertiary)}.drm-select-summary{flex:none;padding:6px 8px 4px;border-top:1px solid var(--dsw-alias-border-l2);font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary)}.drm-select-empty{margin:0;padding:18px 10px;font-size:13px;color:var(--dsw-alias-label-tertiary)}
 .drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);padding:4px 8px;cursor:pointer;white-space:nowrap}.drm-trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.drm-session-modal{width:490px;max-width:calc(100vw - 32px)}.drm-session-body{min-width:0}
 @media(max-width:800px){.drm-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(max-width:420px){.drm-add{grid-template-columns:minmax(0,1fr)}.drm-rule{flex-wrap:wrap}.drm-rule .drm-select{width:100%}.drm-session-body>.drm-row{align-items:stretch;flex-direction:column}.drm-session-body .drm-select{width:100%}}
+
+.drm-errors{margin-top:20px}.drm-error-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0}.drm-error-toolbar input{min-width:180px;flex:1}.drm-error-card{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);padding:14px;margin:12px 0;min-width:0}.drm-error-card h4{font-size:13px;margin:0;overflow-wrap:anywhere}.drm-error-message{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--dsw-alias-bg-module-platform);padding:10px;border-radius:var(--dsw-radius-md);margin:10px 0;max-height:150px;overflow:auto}.drm-error-meta{display:flex;gap:6px 12px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;margin:7px 0}.drm-error-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}.drm-error-actions>label{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:12px}.drm-error-actions .drm-select{width:100%}.drm-rule-list{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.drm-rule-list>div{min-width:0;overflow-wrap:anywhere}.drm-rule-list strong{display:block}.drm-error-history{margin-top:10px;font-size:12px}.drm-error-history summary{cursor:pointer;color:var(--dsw-alias-label-secondary)}.drm-error-history ol{padding-left:20px}.drm-error-history li{margin:8px 0;overflow-wrap:anywhere}.drm-warning{padding:10px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-state-warn-label)}.drm-confirm{max-width:520px}.drm-confirm-body{min-width:0}.drm-confirm-body button{margin:10px 8px 0 0}.drm-inbox-modal{width:780px;max-width:calc(100vw - 24px)}.drm-error-tabs{display:flex;gap:8px;margin:4px 0 16px}.drm-error-tabs button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-state-business-primary)}
+@media(max-width:640px){.drm-error-actions{grid-template-columns:minmax(0,1fr)}.drm-error-actions>button{width:100%}.drm-rule-list{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){.drm-select-chevron,.drm-select-trigger{transition:none}}
 `;
 
@@ -185,14 +188,88 @@ function SettingsCard() {
           h('label',null,'重试次数',h('input',{type:'number','aria-label':'新增模型重试次数',min:0,max:100,step:1,required:true,value:amount,onChange:e=>setAmount(Number(e.target.value))})),
           h('button',{className:'drm-primary',type:'submit',disabled:busy || !provider || !model},'保存模型规则')),
         catalogError ? h('p',{className:'drm-muted'},'模型目录暂不可用，可手动填写 ID。'+catalogError) : null),
-      h('div',{className:'drm-row'},h(BusyLabel,{busy}),h('button',{type:'button',onClick:()=>refresh(),disabled:busy},'刷新配置'))),
-    h('p',{className:'drm-foot'},'只对可恢复的模型请求错误重试。手动停止、认证／配额／参数错误不重试；上下文溢出仍由 DSH 压缩处理。配置在当前失败步骤结束后生效。每次重试可能产生模型费用。'));
+      h('div',{className:'drm-row'},h(BusyLabel,{busy}),h('button',{type:'button',onClick:()=>refresh(),disabled:busy},'刷新配置')),
+      h(ErrorInbox,{onRulesChanged:()=>refresh()})),
+    h('p',{className:'drm-foot'},'默认只重试可恢复的模型错误。认证／配额／参数错误默认不重试，精准放行需额外确认；手动停止和专属恢复不会被覆盖。规则对下一失败步骤生效，每次重试可能产生费用。'));
 }
+const ERROR_ACTION = {keep:'保持原规则', allow:'允许重试', deny:'不重试'};
+const ERROR_SCOPE = {session:'当前会话', model:'当前提供商／模型', global:'全局'};
+const ERROR_OUTCOME = {observed:'已观察', scheduled:'已安排重试', retrying:'已发起下一次请求', terminal:'本轮终止'};
+function ErrorRuleEditor({group, sessionId, busy, onSave, onConfirm}) {
+  const [scope, setScope] = useState('model');
+  const [action, setAction] = useState('keep');
+  const [capturedSession] = useState(group.latest.sessionId);
+  const targetSession = sessionId || capturedSession;
+  const scopes = [{value:'model',label:ERROR_SCOPE.model},{value:'session',label:sessionId?ERROR_SCOPE.session:'该错误的记录会话'},{value:'global',label:ERROR_SCOPE.global}];
+  const actions = Object.entries(ERROR_ACTION).map(([value,label])=>({value,label}));
+  const locked = group.protected || !group.current.canOverride;
+  return h(React.Fragment,null,scope==='session'&&!sessionId?h('p',{className:'drm-muted'},'规则目标会话：'+targetSession):null,h('form',{className:'drm-error-actions',onSubmit:event=>{
+    event.preventDefault();
+    const input={op:'error-rule',errorId:group.id,scope,action,sessionId:targetSession};
+    if(action==='allow' && (group.requiresConfirmation || scope==='global'))onConfirm({input,group});else onSave(input);
+  }},
+    h('label',null,'作用范围',h(SearchableSelect,{label:'错误规则范围 '+group.id,value:scope,options:scopes,onChange:setScope,disabled:busy})),
+    h('label',null,'处理方式',h(SearchableSelect,{label:'错误规则处理 '+group.id,value:action,options:actions.filter(x=>group.protected ? x.value==='keep' : !locked || x.value!=='allow'),onChange:setAction,disabled:busy})),
+    h('button',{type:'submit',className:'drm-primary',disabled:busy || action==='allow' && locked},'保存错误规则')));
+}
+function ErrorInbox({sessionId,onRulesChanged}) {
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState(''),[tab,setTab]=useState('errors'),[confirmation,setConfirmation]=useState(null),[notice,setNotice]=useState('');
+  const query='?errors=1'+(sessionId?'&session='+encodeURIComponent(sessionId):'');
+  const refresh=useCallback(async(signal)=>{
+    try {const next=await api(query,undefined,signal);setData(next);setError('');return next;}
+    catch(e){if(e.name!=='AbortError')setError(e.message);}
+  },[query]);
+  useEffect(()=>{const abort=new AbortController();setData(null);refresh(abort.signal);const timer=setInterval(()=>{if(document.visibilityState!=='hidden')refresh(abort.signal);},5000);return()=>{abort.abort();clearInterval(timer);};},[refresh]);
+  const save=async input=>{
+    setBusy(true);setError('');setNotice('');
+    try {await api('',input.op==='sync-errors'?input:{...input,revision:data?.revision});await refresh();onRulesChanged?.();setNotice(input.op==='sync-errors'?'已读取本会话最近的错误；未恢复运行。':'已保存，仅影响下一次尚未开始恢复的模型步骤；未重跑已结束轮次。');setConfirmation(null);return true;}
+    catch(e){setError(e.message);return false;}
+    finally{setBusy(false);}
+  };
+  const matching=text=>filter.trim().toLocaleLowerCase().split(' ').filter(Boolean).every(word=>text.toLocaleLowerCase().includes(word));
+  const groups=(data?.groups||[]).filter(group=>matching(group.provider+' '+group.model+' '+group.error.code+' '+group.error.message));
+  return h('section',{className:'drm-errors','data-testid':'retry-error-inbox'},
+    h('div',{className:'drm-heading'},h('div',null,h('h3',null,'错误收件箱'),h('p',{className:'drm-muted'},'自动归类模型请求错误，默认保持现有规则。只保存脱敏错误事实，不保存提示词或输出。'))),
+    h('div',{className:'drm-error-tabs'},h('button',{type:'button','aria-pressed':tab==='errors',onClick:()=>setTab('errors')},'收集的错误'),h('button',{type:'button','aria-pressed':tab==='rules',onClick:()=>setTab('rules')},'自定义规则')),
+    h(ErrorText,{text:error||data?.collectionError}),
+    h('div',{className:'drm-error-toolbar'},h('input',{'aria-label':'筛选错误',value:filter,placeholder:'筛选错误、提供商或模型',onChange:e=>setFilter(e.target.value)}),
+      sessionId?h('button',{type:'button',disabled:busy,onClick:()=>save({op:'sync-errors',sessionId})},'读取本会话已有错误'):null,
+      h('button',{type:'button',disabled:busy,onClick:()=>refresh()},'刷新错误')),
+    notice?h('p',{className:'drm-muted',role:'status'},notice):null,
+    !data?h('p',{role:'status'},'正在读取错误…'):tab==='rules'?h('div',{'data-testid':'retry-error-rules'},
+      h('p',{className:'drm-muted'},'优先级：会话 ＞ 提供商／模型 ＞ 全局。保持原规则会屏蔽更宽范围的自定义规则；撤销后恢复继承。'),
+      ...data.rules.filter(rule=>matching(rule.error.message+' '+rule.error.code+' '+rule.target)).map(rule=>h('div',{className:'drm-rule-list',key:rule.id},
+        h('div',null,h('strong',null,ERROR_ACTION[rule.action]+' · '+ERROR_SCOPE[rule.scope]),h('small',{className:'drm-muted'},rule.target),h('pre',{className:'drm-error-message'},rule.error.code+' · '+rule.error.message)),
+        h('button',{type:'button',disabled:busy,onClick:()=>save({op:'remove-error-rule',ruleId:rule.id})},'撤销规则'))),
+      !data.rules.length?h('p',{className:'drm-empty'},'没有自定义错误规则，全部沿用现有规则。'):null):h('div',null,
+      !groups.length?h('p',{className:'drm-empty'},filter?'没有匹配错误。':'尚未收集到错误。新错误会自动出现；当前对话也可读取已有错误。'):null,
+      ...groups.map(group=>h('article',{className:'drm-error-card',key:group.id,'data-error-code':group.error.code,'data-testid':'retry-error-group'},
+        h('h4',null,group.error.code+(group.error.status?' · HTTP '+group.error.status:'')),
+        h('div',{className:'drm-error-meta'},h('span',null,group.provider+' / '+group.model),h('span',null,'出现 '+group.count+' 次'),h('span',null,new Date(group.lastSeen).toLocaleString())),
+        h('pre',{className:'drm-error-message'},group.error.message),
+        h('p',{className:'drm-muted'},'当前规则'+(sessionId?'':'（最近记录的会话）')+'：'+ERROR_ACTION[group.current.action]+' · '+(group.current.source==='original'?'原始策略':ERROR_SCOPE[group.current.source])+' · '+(group.current.retryable?'允许':'不允许')+'重试 · 预算 '+group.current.maxRetries+' 次'),
+        group.requiresConfirmation?h('p',{className:'drm-warning'},'认证／配额／配置等风险错误，放行需要额外确认。仅匹配这一条错误特征，不开放整类错误。'):null,
+        !group.current.canOverride?h('p',{className:'drm-muted'},'此记录未进入请求重试边界，或由取消／专属恢复处理，不可强制放行。'):null,
+        h(ErrorRuleEditor,{group,sessionId,busy,onSave:save,onConfirm:setConfirmation}),
+        h('details',{className:'drm-error-history'},h('summary',null,'最近 '+group.occurrences.length+' 次请求记录'),
+          h('ol',null,...group.occurrences.map(entry=>h('li',{key:entry.id},new Date(entry.time).toLocaleString()+' · '+entry.sessionId+' · 第 '+entry.turn+' 轮 / 第 '+entry.step+' 步 · 事件 #'+entry.seq+' · '+ERROR_OUTCOME[entry.outcome],
+            entry.decision?h('div',{className:'drm-muted'},'发生时：'+ERROR_ACTION[entry.decision.action]+' · '+(entry.decision.retryable?'策略允许重试':'策略不重试')):null))))))),
+    h('p',{className:'drm-foot'},'保留最近 30 天、最多 1000 次错误。每次失败请求独立记录，同类合并计数；断流与之后的 401 不合并。规则按错误特征精确匹配，原始会话日志不改写。0 次、取消和间隔上限继续生效。'),
+    h(Modal,{open:!!confirmation,onClose:()=>{if(!busy)setConfirmation(null);},title:'确认放行错误重试',closeLabel:'取消放行',className:'drm-confirm'},
+      confirmation?h('div',{className:'drm-panel drm-confirm-body'},
+        h('p',null,'将对“'+ERROR_SCOPE[confirmation.input.scope]+'”内这一条错误特征允许重试，不代表密钥或配额会自行恢复。每次重试可能产生费用。'),
+        h('pre',{className:'drm-error-message'},confirmation.group.error.code+' · '+confirmation.group.error.message),
+        h('p',{className:'drm-muted'},'仍遵守已有次数、间隔与取消；不会重跑已结束轮次。'),
+        h('button',{type:'button',disabled:busy,onClick:()=>setConfirmation(null)},'取消'),
+        h('button',{type:'button',className:'drm-primary',disabled:busy,onClick:()=>save({...confirmation.input,confirmRisk:true})},'确认仅放行此错误')):null));
+}
+
 function SessionControl({sessionId}) {
   const [open, setOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const {data,error,busy,save,refresh} = useData(sessionId);
   const session = data?.session;
-  useEffect(()=>setOpen(false),[sessionId]);
+  useEffect(()=>{setOpen(false);setInboxOpen(false);},[sessionId]);
   const label = session?.active ? '重试 '+session.active.retry+'/'+session.active.maxRetries : session ? (session.maxRetries===0?'重试已关':'重试 '+session.maxRetries+' 次') : '重试设置';
   const modal = h(Modal, {open, onClose:()=>setOpen(false), title:'当前对话重试设置', closeLabel:'关闭重试设置', className:'drm-session-modal'},
     h('div', {className:'drm-panel drm-session-body', 'data-testid':'retry-session-dialog'},
@@ -206,9 +283,12 @@ function SessionControl({sessionId}) {
           h('p',null,'错误类型：'+session.active.code+(session.active.phase==='waiting'?' · 约 '+Math.max(0,Math.ceil((session.active.until-Date.now())/1000))+' 秒后重试':'')),
           h('button',{type:'button',disabled:busy,onClick:()=>save({op:'cancel',sessionId,retryId:session.active.retryId})},'取消本次重试')) : h('p',{className:'drm-muted'},'当前没有进行中的重试。'),
         h(BusyLabel,{busy}),
+        h('button',{type:'button',onClick:()=>{setOpen(false);setInboxOpen(true);}},'错误收件箱与规则'),
         h('p',{className:'drm-foot'},'0 次为关闭。只影响当前对话；已有的失败步骤使用开始恢复时的设置。取消会停止当前轮次，保留排队消息。')),
       error ? h('button',{type:'button',onClick:()=>refresh()},'重新读取') : null));
-  return h(React.Fragment,null,h('button',{className:'drm-trigger','aria-label':'当前对话重试设置','aria-haspopup':'dialog','aria-expanded':open,'data-testid':'retry-session-trigger',title:'当前对话重试设置',onClick:()=>{setOpen(true);refresh();}},label),modal);
+  return h(React.Fragment,null,h('button',{className:'drm-trigger','aria-label':'当前对话重试设置','aria-haspopup':'dialog','aria-expanded':open,'data-testid':'retry-session-trigger',title:'当前对话重试设置',onClick:()=>{setOpen(true);refresh();}},label),modal,
+    h(Modal,{open:inboxOpen,onClose:()=>setInboxOpen(false),title:'本会话错误收件箱',closeLabel:'关闭错误收件箱',className:'drm-inbox-modal'},
+      inboxOpen?h('div',{className:'drm-panel'},h(ErrorInbox,{sessionId})):null));
 }
 function apply(ctx) {
   const style=document.createElement('style'); style.dataset.plugin='dsh-retry-manager'; style.textContent=CSS; document.head.appendChild(style);

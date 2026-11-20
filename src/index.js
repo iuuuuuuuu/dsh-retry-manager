@@ -1,8 +1,12 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { join, isAbsolute } from 'node:path';
+import { join, isAbsolute, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
+import { createInbox, groupErrors } from './errors.js';
+import { createCollector } from './observations.js';
+import { decideFailure, ruleTarget, needsRiskConfirmation, NEVER_OVERRIDE } from './rules.js';
 import { createStore } from './state.js';
 import { count, effectivePolicy, modelKey, MAX_RETRIES, MIN_RETRY_INTERVAL_MS, MAX_RETRY_INTERVAL_MS } from './policy.js';
 import { installExecutor } from './retry.js';
@@ -17,6 +21,9 @@ const mutation = z.discriminatedUnion('op', [
   z.object({op: z.literal('default'), revision, maxRetries: retries.nullable(), retryIntervalMs: z.number().int().min(MIN_RETRY_INTERVAL_MS).max(MAX_RETRY_INTERVAL_MS).multipleOf(100).nullable().optional()}).strict(),
   z.object({op: z.literal('model'), revision, provider: identity, model: identity, maxRetries: retries.nullable()}).strict(),
   z.object({op: z.literal('session'), revision, sessionId: identity, maxRetries: retries.nullable()}).strict(),
+  z.object({op:z.literal('error-rule'), revision, errorId:z.string().regex(/^[a-f0-9]{64}$/), scope:z.enum(['session','model','global']), action:z.enum(['keep','allow','deny']), sessionId:identity.optional(), confirmRisk:z.boolean().default(false)}).strict(),
+  z.object({op:z.literal('remove-error-rule'), revision, ruleId:z.string().uuid()}).strict(),
+  z.object({op:z.literal('sync-errors'), sessionId:identity}).strict(),
   z.object({op: z.literal('cancel'), sessionId: identity, retryId: identity}).strict()
 ]);
 const response = (status, body) => new Response(JSON.stringify(body), {status, headers: {'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store'}});
@@ -36,17 +43,20 @@ async function officialExecutor() {
 export async function apply(ctx, config = {}) {
   const stateFile = config.stateFile ?? join(process.env.DSH_PROFILE_DIR || join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'profiles', process.env.DSH_PROFILE || 'default'), 'retry-manager', 'state.json');
   const store = await createStore(stateFile);
+  const inbox = await createInbox(join(dirname(stateFile), 'errors.json'));
+  const collector = createCollector(ctx, inbox);
   const active = new WeakMap();
   let disposed = false;
   const running = new Set();
   ctx.on('session/event', (session, event) => {
+    collector.observe(session, event);
     if (event.type === 'llm/retry') active.set(session, {...event.data, phase: 'waiting', until: event.time + event.data.delayMs});
     else if (event.type === 'llm/retry-started') {
       const current = active.get(session);
       if (current?.retryId === event.data.retryId) active.set(session, {...current, phase: 'retrying'});
     } else if (['step/start', 'step/end', 'turn/end'].includes(event.type)) active.delete(session);
   });
-  await installExecutor(ctx, store, await officialExecutor());
+  await installExecutor(ctx, store, await officialExecutor(), collector);
 
   function sessionFor(id) {
     const agent = ctx.agents.get(id);
@@ -72,8 +82,57 @@ export async function apply(ctx, config = {}) {
     }
     return result;
   }
+  function errorsView(sessionId) {
+    const state = store.snapshot(), collected = inbox.snapshot();
+    const groups = groupErrors(collected.entries, sessionId).map(group => {
+      let inherited;
+      try { inherited = ctx.llm.providerRetryPolicy(group.provider); } catch { /* Removed provider remains inspectable. */ }
+      const base = effectivePolicy(state, sessionId ?? group.latest.sessionId, group.provider, group.model, inherited).policy;
+      const decision = decideFailure(state.errorRules, group.error, sessionId ?? group.latest.sessionId, group.provider, group.model,
+        group.error, base, inherited !== undefined);
+      const {failure: ignored, ...view} = decision;
+      return {...group, current:{...view, canOverride:view.canOverride && group.latest.boundary},
+        requiresConfirmation:needsRiskConfirmation(group.error), protected:NEVER_OVERRIDE.has(group.error.code)};
+    });
+    return {revision:state.revision, inboxRevision:collected.revision, groups, rules:state.errorRules,
+      collectionError:collector.status(), retentionDays:30, maxEvents:1000, sessionId:sessionId ?? null};
+  }
   async function mutate(input) {
     if (disposed) throw new Error('插件正在重新加载，请稍后再试');
+    if (input.op === 'sync-errors') {
+      await collector.sync(input.sessionId);
+      return errorsView(input.sessionId);
+    }
+    if (input.op === 'error-rule') {
+      await collector.drain();
+      const group = groupErrors(inbox.snapshot().entries).find(group => group.id === input.errorId);
+      if (!group) { const e = new Error('该错误已超出保留范围，请刷新收件箱'); e.status=404; throw e; }
+      const sessionId = input.sessionId ?? group.latest.sessionId;
+      if (input.scope === 'session' && !inbox.snapshot().entries.some(entry => entry.groupId === group.id && entry.sessionId === sessionId)) {
+        const e=new Error('目标会话没有该错误记录'); e.status=400; throw e;
+      }
+      if ((input.action !== 'keep' && NEVER_OVERRIDE.has(group.error.code)) || (input.action === 'allow' && !group.latest.boundary)) {
+        const e = new Error('该错误未进入模型请求恢复边界，或由取消／专属恢复处理，不能强制重试'); e.status=400; throw e;
+      }
+      if (input.action === 'allow' && (needsRiskConfirmation(group.error) || input.scope==='global') && !input.confirmRisk) {
+        const e = new Error('放行认证／配额等风险错误或全局规则需要额外确认；每次重试可能产生费用'); e.status=400; throw e;
+      }
+      const target = ruleTarget(input.scope, sessionId, group.provider, group.model), now=Date.now();
+      await store.update(input.revision, draft => {
+        const existing = draft.errorRules.find(rule => rule.scope===input.scope && rule.target===target && rule.error.fingerprint===group.error.fingerprint);
+        draft.errorRules = draft.errorRules.filter(rule => !(rule.scope===input.scope && rule.target===target && rule.error.fingerprint===group.error.fingerprint));
+        draft.errorRules.push({id:existing?.id ?? randomUUID(), scope:input.scope, target, action:input.action, error:group.error,
+          confirmedRisk:input.action==='allow' && input.confirmRisk, createdAt:existing?.createdAt ?? now, updatedAt:now});
+      });
+      return errorsView(input.scope==='session' ? sessionId : undefined);
+    }
+    if (input.op === 'remove-error-rule') {
+      await store.update(input.revision, draft => {
+        if (!draft.errorRules.some(rule => rule.id===input.ruleId)) { const e=new Error('该规则已被移除，请刷新'); e.status=409; throw e; }
+        draft.errorRules = draft.errorRules.filter(rule => rule.id!==input.ruleId);
+      });
+      return errorsView();
+    }
     if (input.op === 'cancel') {
       const agent = sessionFor(input.sessionId);
       if (active.get(agent.session)?.retryId !== input.retryId) { const e = new Error('该次重试已结束，未停止后续任务'); e.status = 409; throw e; }
@@ -114,6 +173,7 @@ export async function apply(ctx, config = {}) {
           }
           const rawId = url.searchParams.get('session');
           const id = rawId === null ? undefined : identity.parse(rawId);
+          if (url.searchParams.get('errors') === '1') { await collector.drain(); await inbox.prune(); return response(200, errorsView(id)); }
           return response(200, currentView(id));
         }
         let body;
@@ -123,13 +183,14 @@ export async function apply(ctx, config = {}) {
         running.add(operation);
         try { return response(200, await operation); } finally { running.delete(operation); }
       } catch (error) {
-        return response(error instanceof z.ZodError ? 400 : error.status ?? 500, {error: error instanceof z.ZodError ? '请求参数无效：次数须为 0–100 的整数，间隔须为 0.1–3600 秒（精确到 0.1 秒）' : error.message});
+        return response(error instanceof z.ZodError ? 400 : error.status ?? 500, {error: error instanceof z.ZodError ? '请求参数无效：请检查范围、错误规则、次数（0–100）与间隔（0.1–3600 秒）' : error.message});
       }
     }
   }));
   ctx.effect(() => async () => {
     disposed = true;
     await Promise.allSettled([...running]);
+    await collector.drain();
     await store.drain();
   }, 'retry-manager: drain configuration writes');
   ctx.logger.info('Retry Manager ready: model defaults and per-session overrides (official executor).');

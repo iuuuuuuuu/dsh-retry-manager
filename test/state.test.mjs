@@ -18,7 +18,7 @@ test('legacy counts migrate without losing overrides; interval persists independ
  const dir=await mkdtemp(join(process.env.DSH_TEST_ROOT||tmpdir(),'retry-migration-'));try{
  const file=join(dir,'state.json');const legacy={version:1,revision:4,defaultMaxRetries:20,models:{'["p","m"]':7},sessions:{existing:0}};
  await writeFile(file,JSON.stringify(legacy));const state=await createStore(file);
- assert.deepEqual(state.snapshot(),{...legacy,retryIntervalMs:null});
+ assert.deepEqual(state.snapshot(),{...legacy,retryIntervalMs:null,errorRules:[]});
  await state.update(4,s=>{s.defaultMaxRetries=100;s.retryIntervalMs=1500;s.models['["p","m"]']=100;s.sessions.existing=100;});
  const saved=(await createStore(file)).snapshot();assert.equal(saved.defaultMaxRetries,100);assert.equal(saved.retryIntervalMs,1500);assert.equal(saved.sessions.existing,100);
  for(const invalid of [0,99,150,3600001,NaN])await assert.rejects(state.update(5,s=>s.retryIntervalMs=invalid));

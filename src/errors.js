@@ -101,14 +101,42 @@ export async function createInbox(file) {
     drain: () => queue
   };
 }
+// Display-only families never replace the exact fingerprints used by saved rules.
+export function groupErrorFamilies(entries, sessionId) {
+  const families = new Map();
+  for (const group of groupErrors(entries, sessionId)) {
+    const {code, status, fingerprint} = group.error;
+    const familyKey = JSON.stringify([group.provider, group.model, code,
+      status !== undefined || ['SERVER','AUTH','TRANSPORT','TIMEOUT','RATE_LIMIT'].includes(code) ? status ?? null : fingerprint]);
+    let family = families.get(familyKey);
+    if (!family) {
+      family = {familyKey, provider:group.provider, model:group.model, error:group.error,
+        variants:[], count:0, firstSeen:group.firstSeen, lastSeen:group.lastSeen};
+      families.set(familyKey, family);
+    }
+    family.variants.push(group);
+    family.count += group.count;
+    family.firstSeen = Math.min(family.firstSeen, group.firstSeen);
+    family.lastSeen = Math.max(family.lastSeen, group.lastSeen);
+  }
+  return [...families.values()].map(family => ({...family, id:family.variants[0].id,
+    latest:family.variants[0].latest, variantCount:family.variants.length}));
+}
+
 export function groupErrors(entries, sessionId) {
-  const groups = new Map();
-  for (const entry of entries) {
-    if (sessionId && entry.sessionId !== sessionId) continue;
+  const groups = new Map(), seen = new Set();
+  const sorted = [...entries].sort((a,b) => b.time-a.time || b.seq-a.seq);
+  for (const entry of sorted) {
+    if ((sessionId && entry.sessionId !== sessionId) || seen.has(entry.id)) continue;
+    seen.add(entry.id);
     let group = groups.get(entry.groupId);
-    if (!group) { group = {id:entry.groupId, provider:entry.provider, model:entry.model, error:entry.error,
-      count:0, firstSeen:entry.time, lastSeen:entry.time, latest:entry, occurrences:[]}; groups.set(entry.groupId, group); }
-    group.count += 1; group.firstSeen = Math.min(group.firstSeen, entry.time);
+    if (!group) {
+      group = {id:entry.groupId, provider:entry.provider, model:entry.model, error:entry.error,
+        count:0, firstSeen:entry.time, lastSeen:entry.time, latest:entry, occurrences:[]};
+      groups.set(entry.groupId, group);
+    }
+    group.count += 1;
+    group.firstSeen = Math.min(group.firstSeen, entry.time);
     if (group.occurrences.length < 10) group.occurrences.push(entry);
   }
   return [...groups.values()];

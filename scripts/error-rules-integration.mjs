@@ -24,6 +24,7 @@ const server=http.createServer(async(req,res)=>{
   const marker=[...raw.matchAll(/CASE_[A-Z0-9]+/g)].at(-1)?.[0];const plan=plans.get(marker);assert.ok(plan,'undeclared test request');
   const n=(calls.get(marker)||0)+1;calls.set(marker,n);
   const spec=plan.events[Math.min(n-1,plan.events.length-1)];
+  if(spec==='gateway-a'||spec==='gateway-b'){res.writeHead(502,{'content-type':'application/json'});res.end(JSON.stringify({code:'upstream_unconfirmed',message:spec==='gateway-a'?'connection closed before message completed':'peer closed connection without TLS close_notify'}));return;}
   if(spec==='auth-http'){res.writeHead(401,{'content-type':'application/json'});res.end(JSON.stringify({code:'invalid_api_key',message:'Selected key invalid',api_key:secret,request_id:randomUUID()}));return;}
   if(spec==='retry-after'){res.writeHead(429,{'content-type':'application/json','retry-after':'30'});res.end(JSON.stringify({code:'rate_limit',message:'too many requests'}));return;}
   res.writeHead(200,{'content-type':'text/event-stream'});let seq=0;
@@ -86,5 +87,13 @@ try{
  // Exercise the actual passive-history API with a live observed log, no Agent activation or prompt.
  const queryModule=await load('dsh-session-query');await mount(queryModule.default,{});
  const sync=await request({op:'sync-errors',sessionId:a.agent.id});assert.equal(sync.status,200,JSON.stringify(sync.value));assert.equal(calls.get(a.marker),2);const afterSync=(await view(a.agent.id)).groups.reduce((n,g)=>n+g.count,0);const again=await request({op:'sync-errors',sessionId:a.agent.id});assert.equal(again.status,200);assert.equal((await view(a.agent.id)).groups.reduce((n,g)=>n+g.count,0),afterSync);report('passive history import is idempotent and never reruns previous requests');
+ await removeRules();const displayTest=await agent(['gateway-a']);events=await run(displayTest,['gateway-a','ok']);assert.equal(calls.get(displayTest.marker),2);
+ events=await run(displayTest,['gateway-b','ok']);assert.equal(calls.get(displayTest.marker),2);
+ const familyView=await view(displayTest.agent.id),family=familyView.families.find(f=>f.error.status===502);
+ assert.ok(family);assert.equal(family.count,2);assert.equal(family.variants.length,2);assert.equal(familyView.groups.filter(g=>g.error.status===502).length,2);
+ const selected=family.variants.find(g=>g.error.message.includes('connection closed before message'));assert.ok(selected);await setRule(selected,'model','deny',displayTest.agent.id);
+ events=await run(displayTest,['gateway-a','ok']);assert.equal(calls.get(displayTest.marker),1);events=await run(displayTest,['gateway-b','ok']);assert.equal(calls.get(displayTest.marker),2);
+ const check=await view(displayTest.agent.id),currentFamily=check.families.find(f=>f.error.status===502);assert.equal(currentFamily.count,4);assert.equal(currentFamily.variants.find(g=>g.id===selected.id).current.action,'deny');
+ assert.equal(currentFamily.variants.find(g=>g.id!==selected.id).current.action,'keep');report('deduplicated 502 display keeps per-signature decisions and exact API compatibility');
  assert.equal(process.exitCode,undefined);console.log('ALL REAL ERROR RULE CHECKS PASSED '+passes.length);
 }catch(error){console.error(error);process.exitCode=1;}finally{for(const h of handles)await h.dispose();for(const f of fibers.reverse())await f.dispose();for(const socket of sockets)socket.destroy();await new Promise(r=>server.close(r));await rm(dir,{recursive:true,force:true});process.argv[1]=previousArg;if(oldKey===undefined)delete process.env.DSH_ERROR_RULE_FIXTURE_KEY;else process.env.DSH_ERROR_RULE_FIXTURE_KEY=oldKey;}

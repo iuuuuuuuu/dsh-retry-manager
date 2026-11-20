@@ -4,7 +4,7 @@ import { join, isAbsolute, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { createInbox, groupErrors } from './errors.js';
+import { createInbox, groupErrors, groupErrorFamilies } from './errors.js';
 import { createCollector } from './observations.js';
 import { decideFailure, ruleTarget, needsRiskConfirmation, NEVER_OVERRIDE } from './rules.js';
 import { createStore } from './state.js';
@@ -94,9 +94,13 @@ export async function apply(ctx, config = {}) {
       return {...group, current:{...view, canOverride:view.canOverride && group.latest.boundary},
         requiresConfirmation:needsRiskConfirmation(group.error), protected:NEVER_OVERRIDE.has(group.error.code)};
     });
-    return {revision:state.revision, inboxRevision:collected.revision, groups, rules:state.errorRules,
+    const byId = new Map(groups.map(group => [group.id, group]));
+    const families = groupErrorFamilies(collected.entries, sessionId).map(family => ({...family,
+      variants:family.variants.map(group => byId.get(group.id))}));
+    return {revision:state.revision, inboxRevision:collected.revision, groups, families, rules:state.errorRules,
       collectionError:collector.status(), retentionDays:30, maxEvents:1000, sessionId:sessionId ?? null};
   }
+
   async function mutate(input) {
     if (disposed) throw new Error('插件正在重新加载，请稍后再试');
     if (input.op === 'sync-errors') {

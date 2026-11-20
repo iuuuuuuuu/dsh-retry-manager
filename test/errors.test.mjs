@@ -4,7 +4,7 @@ import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {errorSignature,createInbox,groupId,groupErrors} from '../src/errors.js';
+import {errorSignature,createInbox,groupId,groupErrors,groupErrorFamilies} from '../src/errors.js';
 import {decideFailure,executionPolicy,ruleTarget,errorRuleSchema} from '../src/rules.js';
 import {createStore} from '../src/state.js';
 const policy={mode:'normal',maxRetries:3,retryableCodes:['SERVER','TRANSPORT'],initialDelayMs:100,maxDelayMs:100,jitterRatio:0};
@@ -74,4 +74,29 @@ test('inbox cap discards only oldest attempts and recognizes the actual adapter 
   assert.equal(inbox.snapshot().entries.length,1000);assert.equal(inbox.snapshot().entries[0].id,'cap:1000');assert.ok(!inbox.snapshot().entries.some(x=>x.id==='cap:0'));
   assert.equal(JSON.parse(await readFile(file,'utf8')).entries.length,1000);
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('display families merge same provider/model status while retaining exact variants for rules',()=>{
+ const a=errorSignature({code:'SERVER',status:502,message:'502 connection closed before message completed'});
+ const b=errorSignature({code:'SERVER',status:502,message:'502 peer closed connection without TLS close_notify'});
+ const c=errorSignature({code:'SERVER',status:503,message:'503 service unavailable'});
+ const make=(id,error)=>({id,groupId:groupId('p','m',error.fingerprint),sessionId:'s',provider:'p',model:'m',turn:1,step:1,seq:Number(id),time:Date.now()+Number(id),error,boundary:true,outcome:'observed'});
+ const families=groupErrorFamilies([make('1',a),make('2',b),make('3',c)]);
+ assert.equal(families.length,2);const f502=families.find(x=>x.error.status===502);assert.equal(f502.count,2);assert.equal(f502.variantCount,2);assert.equal(f502.variants.length,2);assert.notEqual(f502.variants[0].id,f502.variants[1].id);
+});
+
+test('family display is stable, newest-first, session-isolated, and never counts the same event twice',()=>{
+ const a=errorSignature({code:'SERVER',status:502,message:'502 closed'}),b=errorSignature({code:'SERVER',status:502,message:'502 TLS interrupted'});
+ const make=(seq,error,provider='p',model='m',sessionId='s')=>({id:sessionId+':'+seq,groupId:groupId(provider,model,error.fingerprint),sessionId,provider,model,turn:1,step:1,seq,time:1000+seq,error,boundary:true,outcome:'terminal'});
+ const older=make(1,a),newer=make(4,b),duplicate={...newer};
+ const entries=[older,make(2,a,'other'),make(3,b,'p','other'),newer,duplicate,make(5,b,'p','m','other-session')];
+ const scoped=groupErrorFamilies(entries,'s');assert.equal(scoped.length,3);const family=scoped.find(x=>x.provider==='p'&&x.model==='m');
+ assert.equal(family.count,2);assert.equal(family.latest.seq,4);assert.equal(family.variants[0].error.fingerprint,b.fingerprint);assert.equal(family.firstSeen,1001);assert.equal(family.lastSeen,1004);
+ assert.equal(groupErrors(entries,'s').find(x=>x.error.fingerprint===b.fingerprint&&x.model==='m').count,1);
+ const key=family.familyKey;assert.equal(groupErrorFamilies([...entries,make(6,a)],'s')[0].familyKey,key);
+ assert.equal(groupErrorFamilies(entries,'absent').length,0);
+ const una=errorSignature({code:'AUTH',status:401,message:'401 invalid key'}),forbidden=errorSignature({code:'AUTH',status:403,message:'403 forbidden'});
+ assert.equal(groupErrorFamilies([make(7,una),make(8,forbidden)]).length,2);
+ const x=errorSignature({code:'PI_AI_ERROR',message:'unknown x'}),y=errorSignature({code:'PI_AI_ERROR',message:'unknown y'});
+ assert.equal(groupErrorFamilies([make(9,x),make(10,y)]).length,2);
 });

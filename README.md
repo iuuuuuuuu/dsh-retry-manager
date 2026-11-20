@@ -28,7 +28,7 @@
 
 需要 DSH **0.2.2-rc.5** 或兼容的后续 0.2.x 版本；本版已在 0.2.2-rc.5 验证。
 
-正式发布包包含已构建的 Host 和 Client 模块，可从 GitHub Releases 下载 `dsh-retry-manager-0.1.2.tgz`，在 DSH 插件安装界面选择本地压缩包安装；安装后检查版本为 `0.1.2`。GitHub 自动生成的 Source code 压缩包不包含构建产物，不能代替该发布包。
+正式发布包包含已构建的 Host 和 Client 模块，可从 GitHub Releases 下载 `dsh-retry-manager-0.2.0.tgz`，在 DSH 插件安装界面选择本地压缩包安装；安装后检查版本为 `0.2.0`。GitHub 自动生成的 Source code 压缩包不包含构建产物，不能代替该发布包。
 
 本地工程安装：将本包加入目标 profile 的依赖，并在其 package.json 的
 `dsh.profile.bundles` 中追加 `dsh-retry-manager`。启用 HMR 的宿主无需重启。
@@ -42,7 +42,7 @@
 - 复用官方持久重试事件、退避和取消机制，不修改 DSH 核心或安装包。
 - 默认重试超时、传输失败、服务端错误、限流与空响应；提供商自定义可恢复错误码仍可沿用。
 - Responses 流内明确的 `Upstream service temporarily unavailable`、`Upstream request failed, please try again later`（包括 `server_error:` 前缀）即使被适配器归为 `PI_AI_ERROR`，也按 `SERVER` 继续重试；沿用同一失败步骤的预算与间隔，不重置计数。未知、认证、配额、配置、pending／deferred 等错误不会因此一概重试，原始失败文本保留。
-- 手动停止、认证／配额／请求参数错误不重试；上下文溢出和图片卸载交由 DSH 的相应恢复机制。
+- 手动停止不重试；认证／配额／请求参数错误默认不重试，只有明确确认的精确错误规则可放行。上下文溢出和图片卸载交由 DSH 的相应恢复机制，不受自定义放行或拒绝覆盖。
 - 不提供无限重试：上游 always 模式降为最多 5 次；上游 normal 上限超过 100 时限制为 100。
 - 自定义间隔继续沿用官方 Retry-After 规则：适配器提供的有效值不超过配置间隔时会替代本地等待，超过该间隔则停止本次自动恢复；需要原提供商的完整退避策略时，勾选继承间隔。
 - 旧配置文件缺少间隔字段时自动按继承处理，不改变已有次数与模型／对话覆盖。

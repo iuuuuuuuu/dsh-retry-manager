@@ -1,6 +1,6 @@
 {
   "name": "dsh-retry-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH 模型请求重试管理：模型默认、对话覆盖与原生重试状态。",
   "type": "module",
   "license": "MIT",
@@ -38,7 +38,8 @@
     "test": "node --test test/*.test.mjs",
     "test:integration": "node scripts/integration.mjs",
     "check:privacy": "node scripts/privacy.mjs",
-    "test:responses": "node scripts/responses-integration.mjs"
+    "test:responses": "node scripts/responses-integration.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "write-file-atomic": "^7.0.0",

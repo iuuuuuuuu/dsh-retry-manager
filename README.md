@@ -17,7 +17,7 @@
 
 需要 DSH **0.2.2-rc.5** 或兼容的后续 0.2.x 版本；本版已在 0.2.2-rc.5 验证。
 
-正式发布包包含已构建的 Host 和 Client 模块，可从 GitHub Releases 下载 `dsh-retry-manager-0.1.1.tgz`，在 DSH 插件安装界面选择本地压缩包安装；安装后检查版本为 `0.1.1`。GitHub 自动生成的 Source code 压缩包不包含构建产物，不能代替该发布包。
+正式发布包包含已构建的 Host 和 Client 模块，可从 GitHub Releases 下载 `dsh-retry-manager-0.1.2.tgz`，在 DSH 插件安装界面选择本地压缩包安装；安装后检查版本为 `0.1.2`。GitHub 自动生成的 Source code 压缩包不包含构建产物，不能代替该发布包。
 
 本地工程安装：将本包加入目标 profile 的依赖，并在其 package.json 的
 `dsh.profile.bundles` 中追加 `dsh-retry-manager`。启用 HMR 的宿主无需重启。

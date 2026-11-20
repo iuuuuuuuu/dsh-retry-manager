@@ -107,7 +107,7 @@ export async function apply(ctx, config = {}) {
           if (url.searchParams.get('catalog') === '1') {
             const catalog = [];
             for (const provider of ctx.llm.listProviders()) {
-              try { for (const model of await ctx.llm.listModels(provider.id)) catalog.push({provider: provider.id, model: model.id, name: model.name ?? model.id}); }
+              try { for (const model of await ctx.llm.listModels(provider.id)) catalog.push({provider: provider.id, providerName: provider.name ?? provider.id, model: model.id, name: model.name ?? model.id}); }
               catch { /* One unavailable provider must not hide other routes or saved rules. */ }
             }
             return response(200, {catalog});

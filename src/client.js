@@ -1,10 +1,23 @@
 const React = require('react');
-const { createPortal } = require('react-dom');
+const { Menu, MenuItemButton, Modal, IconChevronDownOutlineRegular, IconSearchOutlineRegular } = require('@deepseek-ai/dsh-client-ui-primitives');
 const h = React.createElement;
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, useId } = React;
 const API = new URL('api/dsh-retry-manager', document.baseURI).pathname;
 const SOURCE = {session: '本对话', model: '模型默认', default: '全局默认', provider: '提供商默认'};
-const CSS = ".drm-panel{font-family:inherit;font-size:13px;line-height:1.6;color:var(--text-primary,#dbe1e8);box-sizing:border-box}.drm-panel *{box-sizing:border-box}.drm-panel h2{font-size:18px;line-height:1.4;margin:0 0 6px;font-weight:650}.drm-panel h3{font-size:14px;margin:0 0 4px;font-weight:600}.drm-panel p{margin:6px 0 12px}.drm-heading,.drm-row,.drm-rule{display:flex;align-items:center;justify-content:space-between;gap:16px}.drm-heading{align-items:flex-start;margin-bottom:20px}.drm-muted,.drm-foot,.drm-model small{color:var(--text-secondary,#929baa)}.drm-foot{font-size:12px;margin-top:20px!important}.drm-tag{font-size:11px;border:1px solid var(--border-color,#38414e);padding:3px 8px;border-radius:20px;white-space:nowrap}.drm-note{padding:12px 14px;background:var(--bg-hover,rgba(120,135,160,.1));border:1px solid var(--border-color,#38414e);border-radius:8px;margin:14px 0 18px}.drm-card{border:1px solid var(--border-color,#38414e);padding:18px;border-radius:10px;margin:16px 0}.drm-panel button,.drm-panel select,.drm-panel input{font:inherit;color:inherit;background:var(--bg-primary,#202630);border:1px solid var(--border-color,#46505e);border-radius:6px;min-height:34px;padding:5px 10px;max-width:100%}.drm-panel button{cursor:pointer;white-space:nowrap}.drm-panel button:hover{background:var(--bg-hover,#303a47)}.drm-panel button:disabled,.drm-panel select:disabled{opacity:.55;cursor:wait}.drm-panel input:focus-visible,.drm-panel select:focus-visible,.drm-panel button:focus-visible{outline:2px solid #739bfa;outline-offset:2px}.drm-panel select{min-width:130px}.drm-card>.drm-row{flex-wrap:wrap}.drm-card>.drm-row>div{flex:1 1 200px}.drm-card>.drm-row>select{flex:1 1 260px;width:100%}.drm-global{flex:1 1 100%;min-width:0}.drm-inherit{display:flex;align-items:center;gap:8px;margin-bottom:10px}.drm-panel .drm-inherit input{min-height:0;width:15px;height:15px;padding:0;accent-color:#587ad7}.drm-global-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.drm-global-controls label{display:flex;align-items:center;gap:8px}.drm-global-controls input{width:90px}.drm-interval{margin:14px 0;padding:12px 0;border-top:1px solid var(--border-color,#38414e);border-bottom:1px solid var(--border-color,#38414e)}.drm-interval>.drm-muted{font-size:12px;margin:10px 0 0}.drm-global>.drm-muted{font-size:12px;margin:10px 0 4px}.drm-primary{background:#4169cf!important;color:#fff!important;border-color:#587ad7!important}.drm-add{display:grid;grid-template-columns:minmax(130px,1fr) minmax(140px,1.3fr) 100px auto;align-items:end;gap:10px;border-top:1px solid var(--border-color,#38414e);padding-top:16px;margin-top:16px}.drm-add label{display:flex;flex-direction:column;gap:6px;font-size:12px}.drm-add input{width:100%}.drm-rule{padding:10px 0;border-bottom:1px solid var(--border-color,#38414e)}.drm-rule:last-child{border-bottom:0}.drm-model{min-width:0;overflow-wrap:anywhere}.drm-model strong,.drm-model small{display:block}.drm-model small{font-size:12px}.drm-empty{padding:12px 0;color:var(--text-secondary,#929baa)}.drm-error{color:#f69494;background:rgba(190,60,60,.1);padding:10px;border-radius:6px}.drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--border-color,rgba(140,150,165,.35));border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap;opacity:.85}.drm-trigger:hover{opacity:1;background:rgba(130,140,160,.12)}.drm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:10000;display:flex;justify-content:center;align-items:center;padding:20px}.drm-dialog{background:var(--bg-primary,#1d232c);border:1px solid var(--border-color,#38414e);border-radius:12px;padding:24px;width:490px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:0 18px 70px rgba(0,0,0,.3)}@media(max-width:800px){.drm-add{grid-template-columns:1fr 1fr}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(prefers-color-scheme:light){.drm-panel{color:var(--text-primary,#283141)}.drm-panel button,.drm-panel select,.drm-panel input{background:var(--bg-primary,#fff);border-color:var(--border-color,#d6dbe3)}.drm-dialog{background:var(--bg-primary,#fff)}.drm-note{background:var(--bg-hover,#f1f4f9)}.drm-card,.drm-rule,.drm-tag,.drm-add{border-color:var(--border-color,#d6dbe3)}}";
+const CSS = `
+.drm-panel{font-family:inherit;font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary);box-sizing:border-box}
+.drm-panel *,.drm-select-menu *{box-sizing:border-box}.drm-panel h2{font-size:18px;line-height:1.4;margin:0 0 6px;font-weight:650}.drm-panel h3{font-size:14px;margin:0 0 4px;font-weight:600}.drm-panel p{margin:6px 0 12px}
+.drm-heading,.drm-row,.drm-rule{display:flex;align-items:center;justify-content:space-between;gap:16px}.drm-heading{align-items:flex-start;margin-bottom:20px}.drm-muted,.drm-foot,.drm-model small{color:var(--dsw-alias-label-tertiary)}.drm-foot{font-size:12px;margin-top:20px!important}.drm-tag{font-size:11px;border:1px solid var(--dsw-alias-border-l2);padding:3px 8px;border-radius:20px;white-space:nowrap}
+.drm-note{padding:12px 14px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);margin:14px 0 18px}.drm-card{border:1px solid var(--dsw-alias-border-l2);padding:18px;border-radius:var(--dsw-radius-lg);margin:16px 0}
+.drm-panel button,.drm-panel input{font:inherit;color:inherit;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);min-height:36px;padding:6px 10px;max-width:100%}.drm-panel button{cursor:pointer;white-space:nowrap}.drm-panel button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.drm-panel button:disabled,.drm-panel input:disabled{opacity:.5;cursor:not-allowed}.drm-panel input:focus-visible,.drm-panel button:focus-visible,.drm-select-search input:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}
+.drm-card>.drm-row{flex-wrap:wrap}.drm-card>.drm-row>div{flex:1 1 200px}.drm-global{flex:1 1 100%;min-width:0}.drm-inherit{display:flex;align-items:center;gap:8px;margin-bottom:10px}.drm-panel .drm-inherit input{min-height:0;width:15px;height:15px;padding:0;accent-color:var(--dsw-alias-state-business-primary)}.drm-global-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.drm-global-controls label{display:flex;align-items:center;gap:8px}.drm-global-controls input{width:90px}.drm-interval{margin:14px 0;padding:12px 0;border-top:1px solid var(--dsw-alias-border-l2);border-bottom:1px solid var(--dsw-alias-border-l2)}.drm-interval>.drm-muted,.drm-global>.drm-muted{font-size:12px;margin:10px 0 4px}.drm-primary{background:var(--dsw-alias-state-business-primary)!important;color:var(--dsw-palette-white,#fff)!important;border-color:transparent!important}
+.drm-add{display:grid;grid-template-columns:minmax(130px,1fr) minmax(140px,1.3fr) 100px auto;align-items:end;gap:10px;border-top:1px solid var(--dsw-alias-border-l2);padding-top:16px;margin-top:16px}.drm-add label{display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0}.drm-add input{width:100%}.drm-rule{padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.drm-rule:last-child{border-bottom:0}.drm-model{min-width:0;overflow-wrap:anywhere}.drm-model strong,.drm-model small{display:block}.drm-model small{font-size:12px}.drm-empty{padding:12px 0;color:var(--dsw-alias-label-tertiary)}.drm-error{color:var(--dsw-alias-state-error-primary);background:var(--dsw-alias-interactive-bg-hover-danger);padding:10px;border-radius:var(--dsw-radius-md)}
+.drm-select{display:inline-flex;min-width:0;max-width:100%}.drm-select-count{flex:none;min-width:150px}.drm-add .drm-select{display:flex;width:100%}.drm-panel .drm-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-width:0;text-align:left;transition:background 120ms,border-color 120ms}.drm-select-trigger[aria-expanded=true]{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-hover)}.drm-select-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drm-select-placeholder{color:var(--dsw-alias-label-tertiary)}.drm-select-chevron{flex:none;color:var(--dsw-alias-label-tertiary);transition:transform 120ms}.drm-select-trigger[aria-expanded=true] .drm-select-chevron{transform:rotate(180deg)}
+.drm-select-menu{font-family:inherit;color:var(--dsw-alias-label-primary);min-width:min(240px,calc(100vw - 24px));max-width:min(420px,calc(100vw - 24px));max-height:min(380px,calc(100dvh - 32px))}.drm-select-menu>.drm-select-content{min-height:0}.drm-select-content{display:flex;flex-direction:column;min-height:0}.drm-select-search{display:flex;align-items:center;gap:8px;padding:8px 8px 10px;flex:none;border-bottom:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary)}.drm-select-search svg{flex:none}.drm-select-search input{font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-module-platform);border:0;border-radius:var(--dsw-radius-md);padding:7px 9px;width:100%;min-width:0;line-height:20px}.drm-select-search input::placeholder{color:var(--dsw-alias-label-tertiary)}.drm-select-options{overflow-y:auto;min-height:0;max-height:min(260px,calc(100dvh - 180px));padding:4px 0;overscroll-behavior:contain}.drm-select-item{display:flex;flex-direction:column;gap:1px;min-width:0}.drm-select-item>span,.drm-select-item>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drm-select-item>small{font-size:11px;color:var(--dsw-alias-label-tertiary)}.drm-select-summary{flex:none;padding:6px 8px 4px;border-top:1px solid var(--dsw-alias-border-l2);font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary)}.drm-select-empty{margin:0;padding:18px 10px;font-size:13px;color:var(--dsw-alias-label-tertiary)}
+.drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);padding:4px 8px;cursor:pointer;white-space:nowrap}.drm-trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.drm-session-modal{width:490px;max-width:calc(100vw - 32px)}.drm-session-body{min-width:0}
+@media(max-width:800px){.drm-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(max-width:420px){.drm-add{grid-template-columns:minmax(0,1fr)}.drm-rule{flex-wrap:wrap}.drm-rule .drm-select{width:100%}.drm-session-body>.drm-row{align-items:stretch;flex-direction:column}.drm-session-body .drm-select{width:100%}}
+@media(prefers-reduced-motion:reduce){.drm-select-chevron,.drm-select-trigger{transition:none}}
+`;
 
 async function api(query = '', body, signal) {
   const res = await fetch(API + query, {method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
@@ -37,11 +50,77 @@ function useData(sessionId) {
   return {data, error, busy, save, refresh};
 }
 function ErrorText({text}) { return text ? h('p', {className: 'drm-error', role: 'alert'}, text) : null; }
+// Reuse DSH's Menu surface, positioning, navigation and focus return.
+function SearchableSelect({value, options, onChange, disabled, label, placeholder, allowCustom = false, count = false}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef(null);
+  const triggerRef = useRef(null);
+  const [anchor, setAnchor] = useState(null);
+  const restoreAfterSelection = useRef(false);
+  const id = useId();
+  const current = options.find(option => option.value === value);
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matches = options.filter(option => words.every(word => (option.label + ' ' + option.value).toLocaleLowerCase().includes(word)));
+  const custom = allowCustom && query.trim() && !options.some(option => option.value === query.trim());
+  const position = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const above = innerHeight - rect.bottom < 400 && rect.top > innerHeight - rect.bottom;
+    setAnchor({x:rect.left, y:above ? rect.top : rect.bottom, side:above ? 'top' : 'bottom'});
+  }, []);
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
+  useEffect(() => {
+    if (!open) return;
+    // A viewport anchor avoids CSS-anchor double scroll compensation inside Settings.
+    const moved = event => { if (event.type === 'resize' || event.target === document || event.target?.contains?.(triggerRef.current)) position(); };
+    document.addEventListener('scroll', moved, true);
+    window.addEventListener('resize', moved);
+    return () => { document.removeEventListener('scroll', moved, true); window.removeEventListener('resize', moved); };
+  }, [open, position]);
+  useEffect(() => { if (open) searchRef.current?.focus({preventScroll:true}); }, [open]);
+  useEffect(() => {
+    if (!open && !disabled && restoreAfterSelection.current) {
+      restoreAfterSelection.current = false;
+      triggerRef.current?.focus({preventScroll:true});
+    }
+  }, [open, disabled]);
+  const choose = selected => {
+    restoreAfterSelection.current = true;
+    setOpen(false);
+    triggerRef.current?.focus({preventScroll:true});
+    onChange(selected);
+  };
+  return h('span', {className:'drm-select' + (count ? ' drm-select-count' : '')},
+    h('button', {ref:triggerRef, type:'button', className:'drm-select-trigger', disabled, 'aria-label':label, 'aria-haspopup':'menu', 'aria-expanded':open,
+      title:current?.label || value || placeholder, onClick:() => { setQuery(''); position(); setOpen(!open); }},
+      h('span', {className:'drm-select-label' + (!current && !value ? ' drm-select-placeholder' : '')}, current?.label || value || placeholder),
+      h(IconChevronDownOutlineRegular, {size:14, className:'drm-select-chevron', 'aria-hidden':true})),
+    h(Menu, {open, onClose:() => setOpen(false), portal:true, anchor:null, anchorPoint:anchor, side:anchor?.side,
+      returnFocus:() => triggerRef.current, isExternalTrigger:node => triggerRef.current?.contains(node) === true, listClassName:'drm-select-menu'},
+    h('div', {className:'drm-select-content'},
+      h('div', {className:'drm-select-search'}, h(IconSearchOutlineRegular, {size:16, 'aria-hidden':true}),
+        h('input', {ref:searchRef, role:'searchbox', 'aria-label':label+'筛选', 'aria-controls':id, autoComplete:'off',
+          placeholder:allowCustom ? '筛选名称 / ID，或输入自定义 ID' : '输入次数或关键词筛选', value:query, maxLength:allowCustom ? 240 : 80,
+          onChange:event => setQuery(event.target.value), onKeyDown:event => {
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (['Home','End','ArrowLeft','ArrowRight'].includes(event.key)) event.stopPropagation();
+            if (event.key === 'Enter') {
+              event.preventDefault(); event.stopPropagation();
+              if (matches.length) choose(matches[0].value); else if (custom) choose(query.trim());
+            }
+          }})),
+      h('div', {id, className:'drm-select-options', 'aria-label':label+'候选项'},
+        ...matches.map(option => h(MenuItemButton, {key:'option:'+option.value, selected:option.value===value, disabled, onSelect:() => choose(option.value), title:option.label+' · '+option.value},
+          h('span', {className:'drm-select-item'}, h('span', null, option.label), option.label!==option.value && allowCustom ? h('small', null, option.value) : null))),
+        custom ? h(MenuItemButton, {key:'custom', disabled, onSelect:() => choose(query.trim())}, h('span', {className:'drm-select-item'}, h('span', null, '使用自定义 ID'), h('small', null, query.trim()))) : null,
+        !matches.length && !custom ? h('p', {className:'drm-select-empty', role:'status'}, options.length ? '没有匹配项，换个关键词试试' : '目录暂无候选项，可输入自定义 ID') : null),
+      h('div', {className:'drm-select-summary', role:'status', 'aria-live':'polite'}, '匹配 '+matches.length+' 项'+(allowCustom ? ' · 支持手动填写 ID' : ' · ↑↓ 选择，Enter 确认')))));
+}
 function RetrySelect({value, onChange, disabled, label, inherit = '继承上级设置'}) {
-  return h('select', {'aria-label': label, value: value === null ? 'inherit' : String(value), disabled,
-    onChange: e => onChange(e.target.value === 'inherit' ? null : Number(e.target.value))},
-    h('option', {value: 'inherit'}, inherit),
-    ...Array.from({length: 101}, (_, n) => h('option', {key: n, value: n}, n === 0 ? '关闭重试（0 次）' : n + ' 次重试')));
+  const options = [{value:'inherit', label:inherit}, ...Array.from({length:101}, (_, n) => ({value:String(n), label:n===0 ? '关闭重试（0 次）' : n+' 次重试'}))];
+  return h(SearchableSelect, {value:value===null ? 'inherit' : String(value), options, disabled, label, count:true,
+    onChange:selected => onChange(selected==='inherit' ? null : Number(selected))});
 }
 function BusyLabel({busy}) { return busy ? h('span', {className:'drm-muted', role:'status'}, '正在保存…') : null; }
 function GlobalRetryInput({value, intervalValue, disabled, onSave}) {
@@ -88,7 +167,7 @@ function SettingsCard() {
     api('?catalog=1', undefined, abort.signal).then(x => setCatalog(x.catalog)).catch(e => { if(e.name !== 'AbortError') setCatalogError(e.message); });
     return () => abort.abort();
   }, []);
-  const providers = [...new Set(catalog.map(x => x.provider))];
+  const providers = [...new Map(catalog.map(x => [x.provider, {value:x.provider, label:x.providerName || x.provider}])).values()];
   return h('section', {className: 'drm-panel', 'data-testid': 'retry-settings'},
     h('div', {className:'drm-heading'}, h('div', null, h('h2', null, '模型请求重试'), h('p', {className:'drm-muted'}, '网络中断时自动重试失败步骤，不重放已执行的工具。')), h('span', {className:'drm-tag'}, 'Retry Manager')),
     h('div', {className:'drm-note'}, '优先级：当前对话 ＞ 模型 ＞ 全局 ＞ 提供商。设置 3 次，表示首次失败后最多再请求 3 次；每个新步骤重新计数。'),
@@ -101,38 +180,22 @@ function SettingsCard() {
           h('div',{className:'drm-model'},h('strong',null,rule.model),h('small',null,rule.provider)),
           h(RetrySelect,{label:rule.provider+'/'+rule.model+' 重试次数',value:rule.maxRetries, disabled:busy,onChange:maxRetries=>save({op:'model',provider:rule.provider,model:rule.model,maxRetries}),inherit:'移除规则，继承上级'})))),
         h('form',{className:'drm-add',onSubmit:async e=>{e.preventDefault(); if(await save({op:'model',provider:provider.trim(),model:model.trim(),maxRetries:amount})){setModel('');}}},
-          h('label',null,'提供商 ID',h('input',{'aria-label':'提供商 ID',value:provider,list:'drm-providers',required:true,maxLength:240,placeholder:'例如 my-gateway',onChange:e=>{setProvider(e.target.value);setModel('');}})),
-          h('datalist',{id:'drm-providers'},...providers.map(id=>h('option',{value:id,key:id}))),
-          h('label',null,'模型 ID',h('input',{'aria-label':'模型 ID',value:model,list:'drm-models',required:true,maxLength:240,placeholder:'选择或输入模型 ID',onChange:e=>setModel(e.target.value)})),
-          h('datalist',{id:'drm-models'},...catalog.filter(x=>x.provider===provider).map(x=>h('option',{value:x.model,key:x.model},x.name))),
+          h('label',null,'提供商 ID',h(SearchableSelect,{label:'提供商 ID',value:provider,options:providers,allowCustom:true,placeholder:'选择或输入提供商',disabled:busy,onChange:selected=>{setProvider(selected);setModel('');}})),
+          h('label',null,'模型 ID',h(SearchableSelect,{label:'模型 ID',value:model,options:catalog.filter(x=>x.provider===provider).map(x=>({value:x.model,label:x.name || x.model})),allowCustom:true,placeholder:'选择或输入模型',disabled:busy,onChange:setModel})),
           h('label',null,'重试次数',h('input',{type:'number','aria-label':'新增模型重试次数',min:0,max:100,step:1,required:true,value:amount,onChange:e=>setAmount(Number(e.target.value))})),
-          h('button',{className:'drm-primary',type:'submit',disabled:busy},'保存模型规则')),
+          h('button',{className:'drm-primary',type:'submit',disabled:busy || !provider || !model},'保存模型规则')),
         catalogError ? h('p',{className:'drm-muted'},'模型目录暂不可用，可手动填写 ID。'+catalogError) : null),
       h('div',{className:'drm-row'},h(BusyLabel,{busy}),h('button',{type:'button',onClick:()=>refresh(),disabled:busy},'刷新配置'))),
     h('p',{className:'drm-foot'},'只对可恢复的模型请求错误重试。手动停止、认证／配额／参数错误不重试；上下文溢出仍由 DSH 压缩处理。配置在当前失败步骤结束后生效。每次重试可能产生模型费用。'));
 }
 function SessionControl({sessionId}) {
   const [open, setOpen] = useState(false);
-  const dialogRef = useRef(null);
   const {data,error,busy,save,refresh} = useData(sessionId);
   const session = data?.session;
-  useEffect(()=>{
-    if(!open)return;
-    const previous=document.activeElement;
-    const focusable=()=>Array.from(dialogRef.current?.querySelectorAll('button:not(:disabled),select:not(:disabled),input:not(:disabled),[tabindex="0"]')||[]);
-    focusable()[0]?.focus();
-    const listener=e=>{
-      if(e.key==='Escape'){e.preventDefault();setOpen(false);}
-      if(e.key==='Tab'){const list=focusable(),first=list[0],last=list.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}
-    };
-    document.addEventListener('keydown',listener);
-    return()=>{document.removeEventListener('keydown',listener);if(previous?.isConnected)previous.focus();};
-  },[open]);
   useEffect(()=>setOpen(false),[sessionId]);
   const label = session?.active ? '重试 '+session.active.retry+'/'+session.active.maxRetries : session ? (session.maxRetries===0?'重试已关':'重试 '+session.maxRetries+' 次') : '重试设置';
-  const modal = open ? createPortal(h('div',{className:'drm-backdrop',onMouseDown:e=>{if(e.target===e.currentTarget)setOpen(false);}},
-    h('section',{className:'drm-dialog drm-panel',ref:dialogRef,role:'dialog','aria-modal':true,'aria-label':'当前对话重试设置','data-testid':'retry-session-dialog'},
-      h('div',{className:'drm-heading'},h('h2',null,'当前对话重试'),h('button',{type:'button','aria-label':'关闭重试设置',onClick:()=>setOpen(false)},'关闭')),
+  const modal = h(Modal, {open, onClose:()=>setOpen(false), title:'当前对话重试设置', closeLabel:'关闭重试设置', className:'drm-session-modal'},
+    h('div', {className:'drm-panel drm-session-body', 'data-testid':'retry-session-dialog'},
       h(ErrorText,{text:error}),
       !session ? h('p',{role:'status'},'正在读取本对话配置…') : h(React.Fragment,null,
         h('p',{className:'drm-model'},h('strong',null,session.model||'尚未选择模型'),h('small',null,session.provider||'')),
@@ -144,7 +207,7 @@ function SessionControl({sessionId}) {
           h('button',{type:'button',disabled:busy,onClick:()=>save({op:'cancel',sessionId,retryId:session.active.retryId})},'取消本次重试')) : h('p',{className:'drm-muted'},'当前没有进行中的重试。'),
         h(BusyLabel,{busy}),
         h('p',{className:'drm-foot'},'0 次为关闭。只影响当前对话；已有的失败步骤使用开始恢复时的设置。取消会停止当前轮次，保留排队消息。')),
-      error ? h('button',{type:'button',onClick:()=>refresh()},'重新读取') : null)),document.body) : null;
+      error ? h('button',{type:'button',onClick:()=>refresh()},'重新读取') : null));
   return h(React.Fragment,null,h('button',{className:'drm-trigger','aria-label':'当前对话重试设置','aria-haspopup':'dialog','aria-expanded':open,'data-testid':'retry-session-trigger',title:'当前对话重试设置',onClick:()=>{setOpen(true);refresh();}},label),modal);
 }
 function apply(ctx) {

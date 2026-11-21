@@ -67,7 +67,7 @@ export async function apply(ctx, config = {}) {
   }
   function currentView(sessionId) {
     const state = store.snapshot();
-    const result = {version: '0.2.0', revision: state.revision, defaultMaxRetries: state.defaultMaxRetries, retryIntervalMs: state.retryIntervalMs,
+    const result = {version: '0.3.0', revision: state.revision, defaultMaxRetries: state.defaultMaxRetries, retryIntervalMs: state.retryIntervalMs,
       models: Object.entries(state.models).map(([key, maxRetries]) => { const [provider, model] = JSON.parse(key); return {provider, model, maxRetries}; })};
     if (sessionId) {
       const agent = sessionFor(sessionId);

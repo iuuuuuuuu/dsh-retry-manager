@@ -1,6 +1,6 @@
 {
   "name": "dsh-retry-manager",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "DSH 模型请求重试管理：模型默认、对话覆盖与原生重试状态。",
   "type": "module",
   "license": "MIT",

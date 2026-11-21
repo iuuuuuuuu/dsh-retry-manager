@@ -1,7 +1,6 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute, dirname } from 'node:path';
-import { homedir } from 'node:os';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { createInbox, groupErrors, groupErrorFamilies, errorFamilyKey, partitionErrorEntries } from './errors.js';
@@ -10,6 +9,7 @@ import { decideFailure, ruleTarget, needsRiskConfirmation, NEVER_OVERRIDE } from
 import { createStore } from './state.js';
 import { count, effectivePolicy, modelKey, MAX_RETRIES, MIN_RETRY_INTERVAL_MS, MAX_RETRY_INTERVAL_MS } from './policy.js';
 import { installExecutor } from './retry.js';
+import {storageLocation} from './storage.js';
 
 export const name = 'retry-manager';
 export const inject = ['agents', 'sessionProjections', 'llm'];
@@ -43,9 +43,10 @@ async function officialExecutor() {
 }
 
 export async function apply(ctx, config = {}) {
-  const stateFile = config.stateFile ?? join(process.env.DSH_PROFILE_DIR || join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'profiles', process.env.DSH_PROFILE || 'default'), 'retry-manager', 'state.json');
-  const store = await createStore(stateFile);
-  const inbox = await createInbox(join(dirname(stateFile), 'errors.json'));
+  const storage=storageLocation(config,ctx.get('profileContext'));
+  const store=await createStore(storage.stateFile,{legacyFile:storage.legacyStateFile});
+  const inbox=await createInbox(join(dirname(storage.stateFile),'errors.json'),{
+    legacyFile:storage.legacyStateFile?join(dirname(storage.legacyStateFile),'errors.json'):undefined});
   const collector = createCollector(ctx, inbox);
   const active = new WeakMap();
   let disposed = false;
@@ -67,7 +68,7 @@ export async function apply(ctx, config = {}) {
   }
   function currentView(sessionId) {
     const state = store.snapshot();
-    const result = {version: '0.3.0', revision: state.revision, defaultMaxRetries: state.defaultMaxRetries, retryIntervalMs: state.retryIntervalMs,
+    const result = {version: '0.3.0', persistence:{scope:storage.scope,profile:storage.profile}, revision: state.revision, defaultMaxRetries: state.defaultMaxRetries, retryIntervalMs: state.retryIntervalMs,
       models: Object.entries(state.models).map(([key, maxRetries]) => { const [provider, model] = JSON.parse(key); return {provider, model, maxRetries}; })};
     if (sessionId) {
       const agent = sessionFor(sessionId);
@@ -133,7 +134,7 @@ export async function apply(ctx, config = {}) {
       return errorsView(input.sessionId);
     }
     if (input.op === 'ignore-error' || input.op === 'restore-error') {
-      await collector.drain();
+      await store.refresh();await collector.drain();await inbox.refresh();
       if (input.op==='restore-error') await inbox.setIgnored(input.revision,input.familyKey,null);
       else {
         const snapshot=inbox.snapshot();
@@ -144,7 +145,7 @@ export async function apply(ctx, config = {}) {
       return errorsView(input.sessionId);
     }
     if (input.op === 'error-rule') {
-      await collector.drain();
+      await collector.drain();await inbox.refresh();
       const snapshot=inbox.snapshot();
       const available=[...snapshot.entries,...snapshot.ignored.map(item=>item.sample)];
       const group = groupErrors(available).find(group => group.id === input.errorId);
@@ -213,6 +214,7 @@ export async function apply(ctx, config = {}) {
             }
             return response(200, {catalog});
           }
+          await store.refresh();
           const rawId = url.searchParams.get('session');
           const id = rawId === null ? undefined : identity.parse(rawId);
           if (url.searchParams.get('errors') === '1') { await collector.drain(); await inbox.prune(); return response(200, errorsView(id)); }

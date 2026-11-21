@@ -40,10 +40,12 @@
     "check:privacy": "node scripts/privacy.mjs",
     "test:responses": "node scripts/responses-integration.mjs",
     "prepack": "npm run build",
-    "test:rules": "node scripts/error-rules-integration.mjs"
+    "test:rules": "node scripts/error-rules-integration.mjs",
+    "test:persistence": "node scripts/persistence-integration.mjs"
   },
   "dependencies": {
     "fast-redact": "^3.5.0",
+    "proper-lockfile": "4.1.2",
     "write-file-atomic": "^7.0.0",
     "zod": "^4.6.6"
   },

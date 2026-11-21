@@ -55,7 +55,9 @@
 - 网络恢复是重新请求当前步骤，不保证从上次最后一个字续写。每次重试可能产生费用。
 - 直接调用 ctx.llm.stream() 的辅助消费者仍为单次调用；进程崩溃／系统休眠后的任务恢复不在本插件范围。
 - 设置页使用 DSH 受认证、仅 owner 可用的 API；并发窗口的陈旧写入返回冲突，不覆盖新配置。
-- 配置自动持久化到当前 profile 的 `retry-manager/state.json`；删除插件不会删除配置。
+- 配置绑定宿主官方 `profileContext.dir`，持久化到实际启动 profile 的 `retry-manager/state.json`，不再依赖 CLI 未保证导出的 `DSH_PROFILE*` 环境变量。切换工作目录、重启进程或其他 profile 保存均不会串写。
+- 首次修复启动会把旧 fallback 路径的配置和错误收件箱迁移到正确 profile，仅在目标文件不存在时执行；已有目标永远优先，原文件保留不删。显式 `stateFile` 配置保持最高优先级。
+- 配置和收件箱均用跨进程锁、写前重读、版本冲突校验与原子落盘。损坏或运行中被移除的文件会明确报错，不会静默重置为空。删除插件不会删除配置。
 - 每个 profile 应只运行一个宿主实例；不要让多个进程同时编辑同一配置文件。
 
 ## 开发与验证
@@ -68,6 +70,8 @@
 
 `npm run test:rules`
 
+`npm run test:persistence`：不人为设置 profile 环境变量，真正启动／停止多个 DSH CLI 进程，验证 profile 隔离、不同工作目录重启、旧数据迁移、精确规则／忽略恢复和自定义路径。
+
 真实 DSH 错误收件箱和规则集成测试：使用隔离本地 Responses HTTP 服务验证错误归档、脱敏、三层规则、风险确认、官方预算、取消、工具不重放和被动历史同步；不会调用付费模型。
 
 真实 DSH agent 集成测试：将环境变量 `DSH_DIST` 指向 DSH 的 package.json 或 lib/bin.js，运行
@@ -79,4 +83,4 @@
 本次还用隔离 Web profile、真实本地 HTTP 故障服务器和无头浏览器完成界面及 503、429、
 断流、超时、空响应的验证；无付费模型请求、无鼠标移动或焦点抢占。
 
-配置持久化依赖 write-file-atomic；输入验证依赖 Zod；重试执行器使用 DSH 自带的官方插件。
+配置持久化依赖 write-file-atomic 和 proper-lockfile；输入验证依赖 Zod；重试执行器使用 DSH 自带的官方插件。

@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto';
-import { readFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import writeFileAtomic from 'write-file-atomic';
 import redact from 'fast-redact';
 import { z } from 'zod';
 import { errorSignatureSchema, matchedRule } from './rules.js';
+import {initializeStore,readStoreFile,withStorageLock} from './storage.js';
 
 export const MAX_ERROR_EVENTS = 1000;
 export const ERROR_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -59,75 +58,71 @@ const ignoredSchema = z.object({key:z.string().min(1).max(1200), ignoredAt:z.num
 const schema = z.object({version:z.literal(1), revision:z.number().int().nonnegative(),
   visibilityRevision:z.number().int().nonnegative().default(0),
   entries:z.array(entrySchema).max(MAX_ERROR_EVENTS), ignored:z.array(ignoredSchema).max(MAX_IGNORED_FAMILIES).default([])}).strict();
-export async function createInbox(file) {
-  let state;
-  try { state = schema.parse(JSON.parse(await readFile(file, 'utf8'))); }
-  catch (error) { if (error.code !== 'ENOENT') throw new Error('错误收件箱读取失败，请修复 errors.json 后重载插件', {cause:error}); state = {version:1, revision:0, visibilityRevision:0, entries:[], ignored:[]}; }
-  let queue = Promise.resolve();
-  async function prune() {
-    const operation = queue.then(async () => {
-      const entries = state.entries.filter(entry => entry.time >= Date.now()-ERROR_RETENTION_MS);
-      if (entries.length === state.entries.length) return;
-      const next = {...state, revision:state.revision+1, entries};
-      await mkdir(dirname(file), {recursive:true});
-      await writeFileAtomic(file, JSON.stringify(next, null, 2)+'\n', {mode:0o600});
-      state = next;
-    });
-    queue = operation.catch(() => {});
-    return operation;
+const emptyInbox=()=>({version:1,revision:0,visibilityRevision:0,entries:[],ignored:[]});
+export async function createInbox(file,{legacyFile}={}) {
+  let loaded=await initializeStore(file,legacyFile,schema,'错误收件箱',emptyInbox);
+  let state=loaded.state,persisted=loaded.persisted,queue=Promise.resolve();
+  async function reload() {
+    loaded=await readStoreFile(file,schema,'错误收件箱',emptyInbox,!persisted);
+    state=loaded.state;persisted=loaded.persisted;
   }
+  function enqueue(operation) {
+    const pending=queue.then(operation);queue=pending.catch(()=>{});return pending;
+  }
+  function transact(change) {
+    return enqueue(()=>withStorageLock(file,async()=>{
+      await reload();const next=structuredClone(state);
+      if(change(next)===false)return;
+      next.revision+=1;const parsed=schema.parse(next);
+      await writeFileAtomic(file,JSON.stringify(parsed,null,2)+'\n',{mode:0o600});
+      state=parsed;persisted=true;
+    }));
+  }
+  const prune=()=>transact(next=>{
+    const entries=next.entries.filter(entry=>entry.time>=Date.now()-ERROR_RETENTION_MS);
+    if(entries.length===next.entries.length)return false;
+    next.entries=entries;
+  });
   await prune();
   return {
     prune,
-    setIgnored(expectedRevision, key, sample) {
-      const operation = queue.then(async () => {
-        if (expectedRevision !== state.visibilityRevision) { const e=new Error('收件箱显示设置已被其他窗口修改，请刷新后重试');e.status=409;throw e; }
-        const next=structuredClone(state), previous=next.ignored.find(item=>item.key===key);
-        if (!sample && !previous) { const e=new Error('该类错误已恢复显示，请刷新');e.status=409;throw e; }
+    refresh:()=>enqueue(reload),
+    setIgnored(expectedRevision,key,sample) {
+      return transact(next=>{
+        if(expectedRevision!==next.visibilityRevision){const e=new Error('收件箱显示设置已被其他窗口修改，请刷新后重试');e.status=409;throw e;}
+        const previous=next.ignored.find(item=>item.key===key);
+        if(!sample&&!previous){const e=new Error('该类错误已恢复显示，请刷新');e.status=409;throw e;}
         next.ignored=next.ignored.filter(item=>item.key!==key);
-        if (sample) {
-          if (errorFamilyKey(sample.provider,sample.model,sample.error)!==key) throw new Error('忽略特征不匹配');
-          if (next.ignored.length>=MAX_IGNORED_FAMILIES) { const e=new Error('最多忽略 500 类错误，请先恢复部分忽略项');e.status=400;throw e; }
-          const latest=next.entries.filter(entry=>errorFamilyKey(entry.provider,entry.model,entry.error)===key)
-            .sort((a,b)=>b.time-a.time||b.seq-a.seq)[0];
+        if(sample){
+          if(errorFamilyKey(sample.provider,sample.model,sample.error)!==key)throw new Error('忽略特征不匹配');
+          if(next.ignored.length>=MAX_IGNORED_FAMILIES){const e=new Error('最多忽略 500 类错误，请先恢复部分忽略项');e.status=400;throw e;}
+          const latest=next.entries.filter(entry=>errorFamilyKey(entry.provider,entry.model,entry.error)===key).sort((a,b)=>b.time-a.time||b.seq-a.seq)[0];
           next.ignored.push({key,ignoredAt:previous?.ignoredAt??Date.now(),sample:latest&&latest.time>=sample.time?latest:sample});
         }
-        next.visibilityRevision+=1;next.revision+=1;
-        const parsed=schema.parse(next);
-        await mkdir(dirname(file),{recursive:true});
-        await writeFileAtomic(file,JSON.stringify(parsed,null,2)+'\n',{mode:0o600});state=parsed;
+        next.visibilityRevision+=1;
       });
-      queue=operation.catch(()=>{});return operation;
     },
-    snapshot: () => ({...structuredClone(state), entries:structuredClone(state.entries.filter(entry => entry.time >= Date.now()-ERROR_RETENTION_MS))}),
+    snapshot:()=>({...structuredClone(state),entries:structuredClone(state.entries.filter(entry=>entry.time>=Date.now()-ERROR_RETENTION_MS))}),
     record(input) {
-      const operation = queue.then(async () => {
-        if (input.time < Date.now()-ERROR_RETENTION_MS) return;
-        const next = structuredClone(state);
-        const index = next.entries.findIndex(entry => entry.id === input.id);
-        if (index >= 0) {
-          const previous = next.entries[index];
-          // History re-reads may enrich observations, never undo live recovery outcomes.
-          next.entries[index] = {...previous, ...input, boundary: previous.boundary || input.boundary,
-            outcome: outcomeRank[input.outcome] < outcomeRank[previous.outcome] ? previous.outcome : input.outcome, decision: input.decision ?? previous.decision};
-          if (JSON.stringify(previous) === JSON.stringify(next.entries[index])) return;
-        } else next.entries.push(input);
+      return transact(next=>{
+        if(input.time<Date.now()-ERROR_RETENTION_MS)return false;
+        const index=next.entries.findIndex(entry=>entry.id===input.id);
+        if(index>=0){
+          const previous=next.entries[index];
+          next.entries[index]={...previous,...input,boundary:previous.boundary||input.boundary,
+            outcome:outcomeRank[input.outcome]<outcomeRank[previous.outcome]?previous.outcome:input.outcome,decision:input.decision??previous.decision};
+          if(JSON.stringify(previous)===JSON.stringify(next.entries[index]))return false;
+        }else next.entries.push(input);
         const recorded=next.entries.find(entry=>entry.id===input.id);
         const ignored=next.ignored.find(item=>item.key===errorFamilyKey(recorded.provider,recorded.model,recorded.error));
-        if (ignored && recorded.time>=ignored.sample.time) ignored.sample=structuredClone(recorded);
-        next.entries = next.entries.filter(entry => entry.time >= Date.now() - ERROR_RETENTION_MS).sort((a,b) => b.time-a.time || b.seq-a.seq).slice(0,MAX_ERROR_EVENTS);
-        next.revision += 1;
-        const parsed = schema.parse(next);
-        await mkdir(dirname(file), {recursive:true});
-        await writeFileAtomic(file, JSON.stringify(parsed, null, 2)+'\n', {mode:0o600});
-        state = parsed;
+        if(ignored&&recorded.time>=ignored.sample.time)ignored.sample=structuredClone(recorded);
+        next.entries=next.entries.filter(entry=>entry.time>=Date.now()-ERROR_RETENTION_MS).sort((a,b)=>b.time-a.time||b.seq-a.seq).slice(0,MAX_ERROR_EVENTS);
       });
-      queue = operation.catch(() => {});
-      return operation;
     },
-    drain: () => queue
+    drain:()=>queue
   };
 }
+
 export function errorFamilyKey(provider, model, error) {
   const {code,status,fingerprint}=error;
   return JSON.stringify([provider,model,code,

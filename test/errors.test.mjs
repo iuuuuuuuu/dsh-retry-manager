@@ -4,7 +4,7 @@ import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {errorSignature,createInbox,groupId,groupErrors,groupErrorFamilies} from '../src/errors.js';
+import {errorSignature,createInbox,groupId,groupErrors,groupErrorFamilies,errorFamilyKey,partitionErrorEntries} from '../src/errors.js';
 import {decideFailure,executionPolicy,ruleTarget,errorRuleSchema} from '../src/rules.js';
 import {createStore} from '../src/state.js';
 const policy={mode:'normal',maxRetries:3,retryableCodes:['SERVER','TRANSPORT'],initialDelayMs:100,maxDelayMs:100,jitterRatio:0};
@@ -99,4 +99,42 @@ test('family display is stable, newest-first, session-isolated, and never counts
  assert.equal(groupErrorFamilies([make(7,una),make(8,forbidden)]).length,2);
  const x=errorSignature({code:'PI_AI_ERROR',message:'unknown x'}),y=errorSignature({code:'PI_AI_ERROR',message:'unknown y'});
  assert.equal(groupErrorFamilies([make(9,x),make(10,y)]).length,2);
+});
+
+test('pending hides only applicable explicit rules, never another session or the provider default',()=>{
+ const e=errorSignature({code:'SERVER',status:502,message:'502 gateway failure'});
+ const make=(sessionId,provider='p',model='m')=>({id:sessionId+provider+model,groupId:groupId(provider,model,e.fingerprint),sessionId,provider,model,turn:1,step:1,seq:1,time:Date.now(),error:e,boundary:true,outcome:'terminal'});
+ const entries=[make('s'),make('other'),make('third','p','other-model')];
+ assert.equal(partitionErrorEntries(entries,[],[]).pending.length,3);
+ const sessionRule={...rule('session','keep'),error:e};let result=partitionErrorEntries(entries,[sessionRule],[]);
+ assert.equal(result.configured.length,1);assert.equal(result.pending.length,2);assert.equal(result.configured[0].sessionId,'s');
+ const key=errorFamilyKey('p','m',e);result=partitionErrorEntries(entries,[sessionRule],[{key}]);
+ assert.equal(result.pending.length,1);assert.equal(result.pending[0].model,'other-model');assert.equal(result.ignored.length,2);
+ const modelRule={...rule('model','deny'),error:e};assert.equal(partitionErrorEntries(entries,[modelRule],[]).configured.length,2);
+ const globalRule={...rule('global','keep'),error:e};assert.equal(partitionErrorEntries(entries,[globalRule],[]).pending.length,0);
+});
+test('ignore is reversible, survives reload and history expiry, and has a revision independent of new failures',async()=>{
+ const dir=await mkdtemp(join(process.env.DSH_TEST_ROOT||tmpdir(),'error-visibility-'));try{
+  const file=join(dir,'errors.json'),config=await createStore(join(dir,'state.json')),e=errorSignature({code:'SERVER',status:502,message:'502 failed'});
+  const entry=seq=>({id:'s:'+seq,groupId:groupId('p','m',e.fingerprint),sessionId:'s',provider:'p',model:'m',turn:1,step:1,seq,time:Date.now(),error:e,boundary:true,outcome:'terminal'});
+  let inbox=await createInbox(file);await inbox.record(entry(1));const key=errorFamilyKey('p','m',e);await inbox.setIgnored(0,key,entry(1));
+  const saved=inbox.snapshot();assert.equal(saved.visibilityRevision,1);assert.equal(saved.ignored.length,1);assert.equal(config.snapshot().revision,0);
+  await inbox.record(entry(2));assert.equal(inbox.snapshot().visibilityRevision,1);assert.equal(inbox.snapshot().ignored[0].sample.id,'s:2');
+  await assert.rejects(inbox.setIgnored(0,key,null),e=>e.status===409);assert.equal(inbox.snapshot().ignored.length,1);
+  inbox=await createInbox(file);assert.equal(partitionErrorEntries(inbox.snapshot().entries,[],inbox.snapshot().ignored).pending.length,0);
+  await inbox.setIgnored(1,key,null);assert.equal(inbox.snapshot().ignored.length,0);assert.equal(inbox.snapshot().entries.length,2);assert.equal(config.snapshot().revision,0);
+  await inbox.setIgnored(2,key,entry(2));const disk=JSON.parse(await readFile(file,'utf8'));for(const event of disk.entries)event.time=Date.now()-31*86400000;disk.ignored[0].sample.time=Date.now()-31*86400000;await writeFile(file,JSON.stringify(disk));
+  inbox=await createInbox(file);assert.equal(inbox.snapshot().entries.length,0);assert.equal(inbox.snapshot().ignored.length,1);assert.equal(inbox.snapshot().ignored[0].sample.error.fingerprint,e.fingerprint);
+  await inbox.setIgnored(inbox.snapshot().visibilityRevision,key,null);assert.equal(inbox.snapshot().ignored.length,0);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('ignoring while a newer occurrence is queued preserves the latest redacted summary',async()=>{
+ const dir=await mkdtemp(join(process.env.DSH_TEST_ROOT||tmpdir(),'ignore-queue-'));try{
+  const e=errorSignature({code:'SERVER',status:502,message:'502 failure'}),key=errorFamilyKey('p','m',e);
+  const entry=seq=>({id:'s:'+seq,groupId:groupId('p','m',e.fingerprint),sessionId:'s',provider:'p',model:'m',turn:1,step:1,seq,time:Date.now()+seq,error:e,boundary:true,outcome:'terminal'});
+  const inbox=await createInbox(join(dir,'errors.json')),older=entry(1),newer=entry(2);await inbox.record(older);
+  const recording=inbox.record(newer),ignoring=inbox.setIgnored(0,key,older);await Promise.all([recording,ignoring]);
+  assert.equal(inbox.snapshot().ignored[0].sample.id,newer.id);assert.equal(inbox.snapshot().visibilityRevision,1);
+ }finally{await rm(dir,{recursive:true,force:true});}
 });

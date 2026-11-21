@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 import writeFileAtomic from 'write-file-atomic';
 import redact from 'fast-redact';
 import { z } from 'zod';
-import { errorSignatureSchema } from './rules.js';
+import { errorSignatureSchema, matchedRule } from './rules.js';
 
 export const MAX_ERROR_EVENTS = 1000;
 export const ERROR_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -54,11 +54,15 @@ const entrySchema = z.object({
   seq: z.number().int().nonnegative(), time: z.number().int().nonnegative(), error: errorSignatureSchema,
   boundary: z.boolean(), outcome: z.enum(['observed', 'scheduled', 'retrying', 'terminal']), decision: decisionSchema.optional()
 }).strict();
-const schema = z.object({version: z.literal(1), revision: z.number().int().nonnegative(), entries: z.array(entrySchema).max(MAX_ERROR_EVENTS)}).strict();
+export const MAX_IGNORED_FAMILIES = 500;
+const ignoredSchema = z.object({key:z.string().min(1).max(1200), ignoredAt:z.number().int().nonnegative(), sample:entrySchema}).strict();
+const schema = z.object({version:z.literal(1), revision:z.number().int().nonnegative(),
+  visibilityRevision:z.number().int().nonnegative().default(0),
+  entries:z.array(entrySchema).max(MAX_ERROR_EVENTS), ignored:z.array(ignoredSchema).max(MAX_IGNORED_FAMILIES).default([])}).strict();
 export async function createInbox(file) {
   let state;
   try { state = schema.parse(JSON.parse(await readFile(file, 'utf8'))); }
-  catch (error) { if (error.code !== 'ENOENT') throw new Error('错误收件箱读取失败，请修复 errors.json 后重载插件', {cause:error}); state = {version:1, revision:0, entries:[]}; }
+  catch (error) { if (error.code !== 'ENOENT') throw new Error('错误收件箱读取失败，请修复 errors.json 后重载插件', {cause:error}); state = {version:1, revision:0, visibilityRevision:0, entries:[], ignored:[]}; }
   let queue = Promise.resolve();
   async function prune() {
     const operation = queue.then(async () => {
@@ -75,6 +79,26 @@ export async function createInbox(file) {
   await prune();
   return {
     prune,
+    setIgnored(expectedRevision, key, sample) {
+      const operation = queue.then(async () => {
+        if (expectedRevision !== state.visibilityRevision) { const e=new Error('收件箱显示设置已被其他窗口修改，请刷新后重试');e.status=409;throw e; }
+        const next=structuredClone(state), previous=next.ignored.find(item=>item.key===key);
+        if (!sample && !previous) { const e=new Error('该类错误已恢复显示，请刷新');e.status=409;throw e; }
+        next.ignored=next.ignored.filter(item=>item.key!==key);
+        if (sample) {
+          if (errorFamilyKey(sample.provider,sample.model,sample.error)!==key) throw new Error('忽略特征不匹配');
+          if (next.ignored.length>=MAX_IGNORED_FAMILIES) { const e=new Error('最多忽略 500 类错误，请先恢复部分忽略项');e.status=400;throw e; }
+          const latest=next.entries.filter(entry=>errorFamilyKey(entry.provider,entry.model,entry.error)===key)
+            .sort((a,b)=>b.time-a.time||b.seq-a.seq)[0];
+          next.ignored.push({key,ignoredAt:previous?.ignoredAt??Date.now(),sample:latest&&latest.time>=sample.time?latest:sample});
+        }
+        next.visibilityRevision+=1;next.revision+=1;
+        const parsed=schema.parse(next);
+        await mkdir(dirname(file),{recursive:true});
+        await writeFileAtomic(file,JSON.stringify(parsed,null,2)+'\n',{mode:0o600});state=parsed;
+      });
+      queue=operation.catch(()=>{});return operation;
+    },
     snapshot: () => ({...structuredClone(state), entries:structuredClone(state.entries.filter(entry => entry.time >= Date.now()-ERROR_RETENTION_MS))}),
     record(input) {
       const operation = queue.then(async () => {
@@ -88,6 +112,9 @@ export async function createInbox(file) {
             outcome: outcomeRank[input.outcome] < outcomeRank[previous.outcome] ? previous.outcome : input.outcome, decision: input.decision ?? previous.decision};
           if (JSON.stringify(previous) === JSON.stringify(next.entries[index])) return;
         } else next.entries.push(input);
+        const recorded=next.entries.find(entry=>entry.id===input.id);
+        const ignored=next.ignored.find(item=>item.key===errorFamilyKey(recorded.provider,recorded.model,recorded.error));
+        if (ignored && recorded.time>=ignored.sample.time) ignored.sample=structuredClone(recorded);
         next.entries = next.entries.filter(entry => entry.time >= Date.now() - ERROR_RETENTION_MS).sort((a,b) => b.time-a.time || b.seq-a.seq).slice(0,MAX_ERROR_EVENTS);
         next.revision += 1;
         const parsed = schema.parse(next);
@@ -101,13 +128,28 @@ export async function createInbox(file) {
     drain: () => queue
   };
 }
+export function errorFamilyKey(provider, model, error) {
+  const {code,status,fingerprint}=error;
+  return JSON.stringify([provider,model,code,
+    status!==undefined||['SERVER','AUTH','TRANSPORT','TIMEOUT','RATE_LIMIT'].includes(code)?status??null:fingerprint]);
+}
+export function partitionErrorEntries(entries, rules, ignored) {
+  const result={pending:[],configured:[],ignored:[]},keys=new Set(ignored.map(item=>item.key));
+  for (const entry of entries) {
+    const configured=matchedRule(rules,entry.error,entry.sessionId,entry.provider,entry.model);
+    const hidden=keys.has(errorFamilyKey(entry.provider,entry.model,entry.error));
+    if (configured) result.configured.push(entry);
+    else if (!hidden) result.pending.push(entry);
+    // Keep ignored families discoverable even after configuring their individual variants.
+    if (hidden) result.ignored.push(entry);
+  }
+  return result;
+}
 // Display-only families never replace the exact fingerprints used by saved rules.
 export function groupErrorFamilies(entries, sessionId) {
   const families = new Map();
   for (const group of groupErrors(entries, sessionId)) {
-    const {code, status, fingerprint} = group.error;
-    const familyKey = JSON.stringify([group.provider, group.model, code,
-      status !== undefined || ['SERVER','AUTH','TRANSPORT','TIMEOUT','RATE_LIMIT'].includes(code) ? status ?? null : fingerprint]);
+    const familyKey = errorFamilyKey(group.provider,group.model,group.error);
     let family = families.get(familyKey);
     if (!family) {
       family = {familyKey, provider:group.provider, model:group.model, error:group.error,

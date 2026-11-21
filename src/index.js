@@ -4,7 +4,7 @@ import { join, isAbsolute, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { createInbox, groupErrors, groupErrorFamilies } from './errors.js';
+import { createInbox, groupErrors, groupErrorFamilies, errorFamilyKey, partitionErrorEntries } from './errors.js';
 import { createCollector } from './observations.js';
 import { decideFailure, ruleTarget, needsRiskConfirmation, NEVER_OVERRIDE } from './rules.js';
 import { createStore } from './state.js';
@@ -23,6 +23,8 @@ const mutation = z.discriminatedUnion('op', [
   z.object({op: z.literal('session'), revision, sessionId: identity, maxRetries: retries.nullable()}).strict(),
   z.object({op:z.literal('error-rule'), revision, errorId:z.string().regex(/^[a-f0-9]{64}$/), scope:z.enum(['session','model','global']), action:z.enum(['keep','allow','deny']), sessionId:identity.optional(), confirmRisk:z.boolean().default(false)}).strict(),
   z.object({op:z.literal('remove-error-rule'), revision, ruleId:z.string().uuid()}).strict(),
+  z.object({op:z.literal('ignore-error'),revision,errorId:z.string().regex(/^[a-f0-9]{64}$/),sessionId:identity.optional()}).strict(),
+  z.object({op:z.literal('restore-error'),revision,familyKey:z.string().min(1).max(1200),sessionId:identity.optional()}).strict(),
   z.object({op:z.literal('sync-errors'), sessionId:identity}).strict(),
   z.object({op: z.literal('cancel'), sessionId: identity, retryId: identity}).strict()
 ]);
@@ -83,22 +85,45 @@ export async function apply(ctx, config = {}) {
     return result;
   }
   function errorsView(sessionId) {
-    const state = store.snapshot(), collected = inbox.snapshot();
-    const groups = groupErrors(collected.entries, sessionId).map(group => {
-      let inherited;
-      try { inherited = ctx.llm.providerRetryPolicy(group.provider); } catch { /* Removed provider remains inspectable. */ }
-      const base = effectivePolicy(state, sessionId ?? group.latest.sessionId, group.provider, group.model, inherited).policy;
-      const decision = decideFailure(state.errorRules, group.error, sessionId ?? group.latest.sessionId, group.provider, group.model,
-        group.error, base, inherited !== undefined);
-      const {failure: ignored, ...view} = decision;
-      return {...group, current:{...view, canOverride:view.canOverride && group.latest.boundary},
-        requiresConfirmation:needsRiskConfirmation(group.error), protected:NEVER_OVERRIDE.has(group.error.code)};
-    });
-    const byId = new Map(groups.map(group => [group.id, group]));
-    const families = groupErrorFamilies(collected.entries, sessionId).map(family => ({...family,
-      variants:family.variants.map(group => byId.get(group.id))}));
-    return {revision:state.revision, inboxRevision:collected.revision, groups, families, rules:state.errorRules,
-      collectionError:collector.status(), retentionDays:30, maxEvents:1000, sessionId:sessionId ?? null};
+    const state=store.snapshot(),collected=inbox.snapshot();
+    function grouped(entries) {
+      const groups=groupErrors(entries,sessionId).map(group=>{
+        let inherited;
+        try { inherited=ctx.llm.providerRetryPolicy(group.provider); } catch { /* Removed route stays inspectable. */ }
+        const base=effectivePolicy(state,sessionId??group.latest.sessionId,group.provider,group.model,inherited).policy;
+        const decision=decideFailure(state.errorRules,group.error,sessionId??group.latest.sessionId,group.provider,group.model,group.error,base,inherited!==undefined);
+        const {failure:ignored,...view}=decision;
+        return {...group,current:{...view,canOverride:view.canOverride&&group.latest.boundary},
+          requiresConfirmation:needsRiskConfirmation(group.error),protected:NEVER_OVERRIDE.has(group.error.code)};
+      });
+      const byId=new Map(groups.map(group=>[group.id,group]));
+      const families=groupErrorFamilies(entries,sessionId).map(family=>({...family,variants:family.variants.map(group=>byId.get(group.id))}));
+      return {groups,families};
+    }
+    const scoped=collected.entries.filter(entry=>!sessionId||entry.sessionId===sessionId);
+    const partition=partitionErrorEntries(scoped,state.errorRules,collected.ignored);
+    const configured=grouped(partition.configured).families;
+    const configuredIds=new Set(configured.flatMap(family=>family.variants.map(group=>group.id)));
+    for (const item of collected.ignored) {
+      const family=grouped([item.sample]).families[0],group=family?.variants[0];
+      if (!group?.current.ruleId||configuredIds.has(group.id)) continue;
+      const variant={...group,count:0,occurrences:[],summaryOnly:true};
+      const existing=configured.find(candidate=>candidate.familyKey===family.familyKey);
+      if (existing) existing.variants.push(variant);
+      else configured.push({...family,summaryOnly:true,count:0,variants:[variant]});
+      configuredIds.add(group.id);
+    }
+    const ignored=grouped(partition.ignored).families,seen=new Set(ignored.map(family=>family.familyKey));
+    for (const item of collected.ignored) {
+      if (seen.has(item.key)||sessionId&&item.sample.sessionId!==sessionId) continue;
+      const family=grouped([item.sample]).families[0];
+      if (family) ignored.push({...family,summaryOnly:true,count:0,
+        variants:family.variants.map(group=>({...group,count:0,occurrences:[]}))});
+    }
+    return {revision:state.revision,inboxRevision:collected.revision,visibilityRevision:collected.visibilityRevision,
+      ...grouped(collected.entries),
+      views:{pending:grouped(partition.pending).families,configured,ignored},
+      rules:state.errorRules,collectionError:collector.status(),retentionDays:30,maxEvents:1000,sessionId:sessionId??null};
   }
 
   async function mutate(input) {
@@ -107,12 +132,25 @@ export async function apply(ctx, config = {}) {
       await collector.sync(input.sessionId);
       return errorsView(input.sessionId);
     }
+    if (input.op === 'ignore-error' || input.op === 'restore-error') {
+      await collector.drain();
+      if (input.op==='restore-error') await inbox.setIgnored(input.revision,input.familyKey,null);
+      else {
+        const snapshot=inbox.snapshot();
+        const group=groupErrors(snapshot.entries,input.sessionId).find(group=>group.id===input.errorId);
+        if (!group) { const e=new Error('该错误已不在待处理记录中，请刷新');e.status=404;throw e; }
+        await inbox.setIgnored(input.revision,errorFamilyKey(group.provider,group.model,group.error),group.latest);
+      }
+      return errorsView(input.sessionId);
+    }
     if (input.op === 'error-rule') {
       await collector.drain();
-      const group = groupErrors(inbox.snapshot().entries).find(group => group.id === input.errorId);
+      const snapshot=inbox.snapshot();
+      const available=[...snapshot.entries,...snapshot.ignored.map(item=>item.sample)];
+      const group = groupErrors(available).find(group => group.id === input.errorId);
       if (!group) { const e = new Error('该错误已超出保留范围，请刷新收件箱'); e.status=404; throw e; }
       const sessionId = input.sessionId ?? group.latest.sessionId;
-      if (input.scope === 'session' && !inbox.snapshot().entries.some(entry => entry.groupId === group.id && entry.sessionId === sessionId)) {
+      if (input.scope === 'session' && !available.some(entry => entry.groupId === group.id && entry.sessionId === sessionId)) {
         const e=new Error('目标会话没有该错误记录'); e.status=400; throw e;
       }
       if ((input.action !== 'keep' && NEVER_OVERRIDE.has(group.error.code)) || (input.action === 'allow' && !group.latest.boundary)) {

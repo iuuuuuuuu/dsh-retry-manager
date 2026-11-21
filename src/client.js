@@ -17,7 +17,7 @@ const CSS = `
 .drm-trigger{font-family:inherit;font-size:12px;line-height:1.4;background:transparent;color:inherit;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);padding:4px 8px;cursor:pointer;white-space:nowrap}.drm-trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.drm-session-modal{width:490px;max-width:calc(100vw - 32px)}.drm-session-body{min-width:0}
 @media(max-width:800px){.drm-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.drm-row{flex-wrap:wrap}.drm-card{padding:14px}}@media(max-width:420px){.drm-add{grid-template-columns:minmax(0,1fr)}.drm-rule{flex-wrap:wrap}.drm-rule .drm-select{width:100%}.drm-session-body>.drm-row{align-items:stretch;flex-direction:column}.drm-session-body .drm-select{width:100%}}
 
-.drm-errors{margin-top:20px}.drm-error-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0}.drm-error-toolbar input{min-width:180px;flex:1}.drm-error-card{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);padding:14px;margin:12px 0;min-width:0}.drm-error-card h4{font-size:13px;margin:0;overflow-wrap:anywhere}.drm-error-message{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--dsw-alias-bg-module-platform);padding:10px;border-radius:var(--dsw-radius-md);margin:10px 0;max-height:150px;overflow:auto}.drm-error-meta{display:flex;gap:6px 12px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;margin:7px 0}.drm-error-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}.drm-error-actions>label{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:12px}.drm-error-actions .drm-select{width:100%}.drm-rule-list{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.drm-rule-list>div{min-width:0;overflow-wrap:anywhere}.drm-rule-list strong{display:block}.drm-error-history{margin-top:10px;font-size:12px}.drm-error-history summary{cursor:pointer;color:var(--dsw-alias-label-secondary)}.drm-error-history ol{padding-left:20px}.drm-error-history li{margin:8px 0;overflow-wrap:anywhere}.drm-warning{padding:10px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-state-warn-label)}.drm-confirm{max-width:520px}.drm-confirm-body{min-width:0}.drm-confirm-body button{margin:10px 8px 0 0}.drm-inbox-modal{width:780px;max-width:calc(100vw - 24px)}.drm-error-tabs{display:flex;gap:8px;margin:4px 0 16px}.drm-error-tabs button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-state-business-primary)}
+.drm-errors{margin-top:20px}.drm-error-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0}.drm-error-toolbar input{min-width:180px;flex:1}.drm-error-card{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);padding:14px;margin:12px 0;min-width:0}.drm-error-card h4{font-size:13px;margin:0;overflow-wrap:anywhere}.drm-error-message{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--dsw-alias-bg-module-platform);padding:10px;border-radius:var(--dsw-radius-md);margin:10px 0;max-height:150px;overflow:auto}.drm-error-meta{display:flex;gap:6px 12px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;margin:7px 0}.drm-error-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}.drm-error-actions>label{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:12px}.drm-error-actions .drm-select{width:100%}.drm-rule-list{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.drm-rule-list>div{min-width:0;overflow-wrap:anywhere}.drm-rule-list strong{display:block}.drm-error-history{margin-top:10px;font-size:12px}.drm-error-history summary{cursor:pointer;color:var(--dsw-alias-label-secondary)}.drm-error-history ol{padding-left:20px}.drm-error-history li{margin:8px 0;overflow-wrap:anywhere}.drm-warning{padding:10px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-state-warn-label)}.drm-confirm{max-width:520px}.drm-confirm-body{min-width:0}.drm-confirm-body button{margin:10px 8px 0 0}.drm-inbox-modal{width:780px;max-width:calc(100vw - 24px)}.drm-error-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 16px}.drm-error-tabs button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-state-business-primary)}
 @media(max-width:640px){.drm-error-actions{grid-template-columns:minmax(0,1fr)}.drm-error-actions>button{width:100%}.drm-rule-list{flex-wrap:wrap}}
 .drm-inbox-modal{max-height:calc(100dvh - max(24px,var(--dsh-frame-overlay-top,24px)) - 24px);max-height:min(900px,calc(100dvh - max(24px,var(--dsh-frame-overlay-top,24px)) - 24px))}.drm-inbox-content{min-height:0;overflow:hidden;flex:1 1 auto}.drm-inbox-content>:first-child{flex-shrink:0}.drm-inbox-content>:last-child{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.drm-inbox-list{max-height:min(600px,56dvh);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:0 4px}.drm-inbox-list>:first-child{margin-top:0}.drm-inbox-content .drm-inbox-list{max-height:none;overflow:visible;padding:0}.drm-inbox-pages{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:12px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}.drm-inbox-pages>div{display:flex;gap:8px}.drm-error-variant{display:flex;flex-direction:column;gap:6px;margin:10px 0;font-size:12px;min-width:0}.drm-error-variant>.drm-select{width:100%}.drm-inbox-content .drm-errors{margin-top:0}
 @media(prefers-reduced-motion:reduce){.drm-select-chevron,.drm-select-trigger{transition:none}}
@@ -221,13 +221,17 @@ function InboxPages({page, total, onChange, busy}) {
     h('div',null,h('button',{type:'button',disabled:busy||page===0,onClick:()=>onChange(page-1)},'上一页'),
       h('button',{type:'button',disabled:busy||page>=pages-1,onClick:()=>onChange(page+1)},'下一页')));
 }
-function ErrorFamilyCard({family,sessionId,busy,onSave,onConfirm}) {
+function ErrorFamilyCard({family,sessionId,busy,onSave,onConfirm,view}) {
   const [selected,setSelected] = useState(family.variants[0].id);
   const group = family.variants.find(item=>item.id===selected) || family.variants[0];
   return h('article',{className:'drm-error-card','data-error-code':group.error.code,'data-error-status':group.error.status,'data-testid':'retry-error-group'},
     h('h4',null,group.error.code+(group.error.status?' · HTTP '+group.error.status:'')),
     h('div',{className:'drm-error-meta'},h('span',null,family.provider+' / '+family.model),
-      h('span',null,'出现 '+family.count+' 次'),h('span',null,family.variants.length+' 种具体错误'),h('span',null,new Date(family.lastSeen).toLocaleString())),
+      h('span',null,family.summaryOnly?'已保留摘要':'出现 '+family.count+' 次'),h('span',null,family.variants.length+' 种具体错误'),h('span',null,new Date(family.lastSeen).toLocaleString())),
+    view==='pending'?h('div',{className:'drm-row'},h('small',{className:'drm-muted'},'忽略仅整理收件箱，不改变重试策略。'),
+      h('button',{type:'button',disabled:busy,onClick:()=>onSave({op:'ignore-error',errorId:group.id,sessionId:sessionId||group.latest.sessionId}),title:'忽略此提供商／模型的此类错误；可在已忽略中恢复或配置'},'忽略此类')):null,
+    view==='ignored'?h('div',{className:'drm-row'},h('small',{className:'drm-muted'},family.summaryOnly?'原请求记录已过保留期，仍可用脱敏摘要直接配置。':'此类后续重复错误也会收进已忽略，可在这里直接配置。'),
+      h('button',{type:'button',disabled:busy,onClick:()=>onSave({op:'restore-error',familyKey:family.familyKey,sessionId})},family.summaryOnly?'取消后续忽略':'恢复到待配置')):null,
     family.variants.length>1?h('label',{className:'drm-error-variant'},'具体错误（规则仅作用于选中特征）',
       h(SearchableSelect,{label:'选择具体错误',value:group.id,disabled:busy,onChange:setSelected,
         options:family.variants.map(item=>({value:item.id,label:item.error.message+' · '+item.count+' 次'}))})):null,
@@ -241,7 +245,7 @@ function ErrorFamilyCard({family,sessionId,busy,onSave,onConfirm}) {
         entry.decision?h('div',{className:'drm-muted'},'发生时：'+ERROR_ACTION[entry.decision.action]+' · '+(entry.decision.retryable?'策略允许重试':'策略不重试')):null)))));
 }
 function ErrorInbox({sessionId,onRulesChanged}) {
-  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState(''),[tab,setTab]=useState('errors'),[confirmation,setConfirmation]=useState(null),[notice,setNotice]=useState(''),[page,setPage]=useState(0);
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState(''),[tab,setTab]=useState('pending'),[confirmation,setConfirmation]=useState(null),[notice,setNotice]=useState(''),[page,setPage]=useState(0);
   const listRef=useRef(null);
   const query='?errors=1'+(sessionId?'&session='+encodeURIComponent(sessionId):'');
   const refresh=useCallback(async(signal)=>{
@@ -251,12 +255,20 @@ function ErrorInbox({sessionId,onRulesChanged}) {
   useEffect(()=>{const abort=new AbortController();setData(null);setPage(0);refresh(abort.signal);const timer=setInterval(()=>{if(document.visibilityState!=='hidden')refresh(abort.signal);},5000);return()=>{abort.abort();clearInterval(timer);};},[refresh]);
   const save=async input=>{
     setBusy(true);setError('');setNotice('');
-    try {await api('',input.op==='sync-errors'?input:{...input,revision:data?.revision});await refresh();onRulesChanged?.();setNotice(input.op==='sync-errors'?'已读取本会话最近的错误；未恢复运行。':'已保存，仅影响下一次尚未开始恢复的模型步骤；未重跑已结束轮次。');setConfirmation(null);return true;}
+    try {
+      const visibility=input.op==='ignore-error'||input.op==='restore-error';
+      await api('',input.op==='sync-errors'?input:{...input,revision:visibility?data?.visibilityRevision:data?.revision});
+      await refresh();if(!visibility)onRulesChanged?.();
+      setNotice(input.op==='ignore-error'?'已移入“已忽略”，后续此类错误也会收起；重试规则未改变。'
+        :input.op==='restore-error'?'已取消忽略，未配置的保留期内记录会回到待配置；已配置规则不变。'
+        :input.op==='sync-errors'?'已读取本会话最近的错误；未恢复运行。':input.op==='remove-error-rule'?'已撤销规则，未忽略的记录会回到待配置。':'已保存规则，可在“已配置”或“自定义规则”查看；未重跑已结束轮次。');
+      setConfirmation(null);return true;
+    }
     catch(e){setError(e.message);return false;}
     finally{setBusy(false);}
   };
   const matching=text=>filter.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean).every(word=>text.toLocaleLowerCase().includes(word));
-  const families=(data?.families || (data?.groups||[]).map(group=>({...group,familyKey:group.id,variants:[group]})))
+  const families=(data?.views?.[tab] || (tab==='pending'?data?.families:[]) || (data?.groups||[]).map(group=>({...group,familyKey:group.id,variants:[group]})))
     .map(family=>({...family,variants:family.variants.filter(group=>matching(group.provider+' '+group.model+' '+group.error.code+' '+(group.error.status??'')+' '+group.error.message))}))
     .filter(family=>family.variants.length);
   const rules=(data?.rules||[]).filter(rule=>matching(rule.error.message+' '+rule.error.code+' '+rule.target));
@@ -264,8 +276,9 @@ function ErrorInbox({sessionId,onRulesChanged}) {
   const changePage=next=>{setPage(next);if(listRef.current)listRef.current.scrollTop=0;};
   useEffect(()=>{if(page!==currentPage)setPage(currentPage);},[page,currentPage]);
   return h('section',{className:'drm-errors','data-testid':'retry-error-inbox'},
-    h('div',{className:'drm-heading'},h('div',null,h('h3',null,'错误收件箱'),h('p',{className:'drm-muted'},'同一提供商／模型的同类错误合并计数，具体特征分别保留。默认保持现有规则。'))),
-    h('div',{className:'drm-error-tabs'},h('button',{type:'button','aria-pressed':tab==='errors',onClick:()=>{setTab('errors');changePage(0);}},'收集的错误'),h('button',{type:'button','aria-pressed':tab==='rules',onClick:()=>{setTab('rules');changePage(0);}},'自定义规则')),
+    h('div',{className:'drm-heading'},h('div',null,h('h3',null,'错误收件箱'),h('p',{className:'drm-muted'},'默认只显示尚未配置的错误。已配置自动收起；忽略仅整理列表，不改变重试策略。'))),
+    h('div',{className:'drm-error-tabs'},...Object.entries({pending:'待配置',configured:'已配置',ignored:'已忽略',rules:'自定义规则'}).map(([key,label])=>
+      h('button',{type:'button',key,'aria-label':label,'aria-pressed':tab===key,onClick:()=>{setTab(key);changePage(0);}},label+' · '+(key==='rules'?(data?.rules.length??0):(data?.views?.[key]?.length??0))))),
     h(ErrorText,{text:error||data?.collectionError}),
     h('div',{className:'drm-error-toolbar'},h('input',{'aria-label':'筛选错误',value:filter,placeholder:'筛选错误、提供商或模型',onChange:e=>{setFilter(e.target.value);changePage(0);}}),
       sessionId?h('button',{type:'button',disabled:busy,onClick:()=>save({op:'sync-errors',sessionId})},'读取本会话已有错误'):null,
@@ -275,13 +288,13 @@ function ErrorInbox({sessionId,onRulesChanged}) {
       tab==='rules'?h('p',{className:'drm-muted'},'优先级：会话 ＞ 提供商／模型 ＞ 全局。保持原规则会屏蔽更宽范围的自定义规则；撤销后恢复继承。'):null,
       h(InboxPages,{page:currentPage,total,onChange:changePage,busy}),
       h('div',{ref:listRef,className:'drm-inbox-list','data-testid':tab==='rules'?'retry-error-rules':'retry-error-families'},
-        !total?h('p',{className:'drm-empty'},filter?'没有匹配项。':tab==='rules'?'没有自定义错误规则，全部沿用现有规则。':'尚未收集到错误。新错误会自动出现；当前对话也可读取已有错误。'):null,
+        !total?h('p',{className:'drm-empty'},filter?'没有匹配项。':tab==='rules'?'没有自定义错误规则，全部沿用现有规则。':tab==='configured'?'尚无已配置的错误。':tab==='ignored'?'没有已忽略的错误。':'没有待配置的错误，已配置和已忽略的内容可切换标签查看。'):null,
         ...items.slice(currentPage*INBOX_PAGE_SIZE,(currentPage+1)*INBOX_PAGE_SIZE).map(item=>tab==='rules'
           ?h('div',{className:'drm-rule-list',key:item.id},
             h('div',null,h('strong',null,ERROR_ACTION[item.action]+' · '+ERROR_SCOPE[item.scope]),h('small',{className:'drm-muted'},item.target),h('pre',{className:'drm-error-message'},item.error.code+' · '+item.error.message)),
             h('button',{type:'button',disabled:busy,onClick:()=>save({op:'remove-error-rule',ruleId:item.id})},'撤销规则'))
-          :h(ErrorFamilyCard,{key:item.familyKey,family:item,sessionId,busy,onSave:save,onConfirm:setConfirmation})))),
-    h('p',{className:'drm-foot'},'同类按错误码和 HTTP 状态归并展示；不同具体特征独立设置规则，合并不会放宽已有规则。每页最多 5 项。保留最近 30 天、最多 1000 次错误；原始会话日志不改写，0 次、取消和间隔上限继续生效。'),
+          :h(ErrorFamilyCard,{key:item.familyKey,family:item,sessionId,busy,onSave:save,onConfirm:setConfirmation,view:tab})))),
+    h('p',{className:'drm-foot'},'同类合并，每页最多 5 项。配置仅作用于选中特征；撤销后，未忽略的错误会回到待配置。忽略按提供商／模型作用于此类，仅影响展示，已忽略中可恢复或直接配置。请求记录保留 30 天、最多 1000 次；忽略项仅另存最后一条脱敏摘要，最多 500 类，直到取消忽略。'),
     h(Modal,{open:!!confirmation,onClose:()=>{if(!busy)setConfirmation(null);},title:'确认放行错误重试',closeLabel:'取消放行',className:'drm-confirm'},
       confirmation?h('div',{className:'drm-panel drm-confirm-body'},
         h('p',null,'将对“'+ERROR_SCOPE[confirmation.input.scope]+'”内这一条错误特征允许重试，不代表密钥或配额会自行恢复。每次重试可能产生费用。'),
